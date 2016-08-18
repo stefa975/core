@@ -18,6 +18,41 @@
  */
 package org.jboss.as.console.client.domain.topology;
 
+import static com.google.gwt.user.client.Event.ONCLICK;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static org.jboss.as.console.client.domain.model.impl.LifecycleOperation.KILL;
+import static org.jboss.as.console.client.domain.model.impl.LifecycleOperation.RELOAD;
+import static org.jboss.as.console.client.domain.model.impl.LifecycleOperation.RESTART;
+import static org.jboss.as.console.client.domain.model.impl.LifecycleOperation.START;
+import static org.jboss.as.console.client.domain.model.impl.LifecycleOperation.STOP;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.DATA_GROUP_NAME;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.DATA_HOST_NAME;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.DATA_SERVER_NAME;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.KILL_SERVER_ID;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.RELOAD_SERVER_ID;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.RESTART_GROUP_ID;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.START_GROUP_ID;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.START_SERVER_ID;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.STOP_GROUP_ID;
+import static org.jboss.as.console.client.domain.topology.HtmlGenerator.STOP_SERVER_ID;
+
+import java.util.List;
+import java.util.SortedSet;
+
+import org.jboss.as.console.client.Console;
+import org.jboss.as.console.client.core.SuspendableViewImpl;
+import org.jboss.as.console.client.domain.model.ServerInstance;
+import org.jboss.as.console.client.domain.model.impl.LifecycleOperation;
+import org.jboss.as.console.client.layout.SimpleLayout;
+import org.jboss.as.console.client.shared.runtime.ext.Extension;
+import org.jboss.as.console.client.shared.runtime.ext.ExtensionView;
+import org.jboss.as.console.client.widgets.tabs.DefaultTabLayoutPanel;
+import org.jboss.ballroom.client.widgets.tables.DefaultPager;
+import org.jboss.ballroom.client.widgets.tools.ToolButton;
+import org.jboss.ballroom.client.widgets.tools.ToolStrip;
+import org.jboss.ballroom.client.widgets.window.Feedback;
+
 import com.google.gwt.dom.client.Element;
 import com.google.gwt.dom.client.Style;
 import com.google.gwt.event.dom.client.ClickEvent;
@@ -35,27 +70,6 @@ import com.google.gwt.view.client.HasRows;
 import com.google.gwt.view.client.Range;
 import com.google.gwt.view.client.RangeChangeEvent;
 import com.google.gwt.view.client.RowCountChangeEvent;
-import org.jboss.as.console.client.Console;
-import org.jboss.as.console.client.core.SuspendableViewImpl;
-import org.jboss.as.console.client.domain.model.ServerInstance;
-import org.jboss.as.console.client.domain.model.impl.LifecycleOperation;
-import org.jboss.as.console.client.layout.SimpleLayout;
-import org.jboss.as.console.client.shared.runtime.ext.Extension;
-import org.jboss.as.console.client.shared.runtime.ext.ExtensionView;
-import org.jboss.as.console.client.widgets.tabs.DefaultTabLayoutPanel;
-import org.jboss.ballroom.client.widgets.tables.DefaultPager;
-import org.jboss.ballroom.client.widgets.tools.ToolButton;
-import org.jboss.ballroom.client.widgets.tools.ToolStrip;
-import org.jboss.ballroom.client.widgets.window.Feedback;
-
-import java.util.List;
-import java.util.SortedSet;
-
-import static com.google.gwt.user.client.Event.ONCLICK;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
-import static org.jboss.as.console.client.domain.model.impl.LifecycleOperation.*;
-import static org.jboss.as.console.client.domain.topology.HtmlGenerator.*;
 
 /**
  * @author Harald Pehl
@@ -99,9 +113,9 @@ public class TopologyView extends SuspendableViewImpl implements TopologyPresent
 
         container = new FlowPanel();
         display = new HostsDisplay();
-        pager = new HostsPager();
-        pager.setDisplay(display);
-        pager.setPageSize(TopologyPresenter.VISIBLE_HOSTS_COLUMNS);
+//        pager = new HostsPager();
+//        pager.setDisplay(display);
+//        pager.setPageSize(TopologyPresenter.VISIBLE_HOSTS_COLUMNS);
 
         layout.addContent("topology", container);
 
@@ -149,40 +163,76 @@ public class TopologyView extends SuspendableViewImpl implements TopologyPresent
 
         // start table and add columns
         html.startTable().appendHtmlConstant("<colgroup>");
-        int columnWidth = HOSTS_COLUMNS / (endIndex - this.hostIndex);
+//        int columnWidth = HOSTS_COLUMNS / (endIndex - this.hostIndex);
+        int columnWidth = 85;
         html.appendColumn(SERVER_GROUPS_COLUMN);
-        for (int i = this.hostIndex; i < endIndex; i++) {
+//        for (int i = this.hostIndex; i < endIndex; i++) {
             html.appendColumn(columnWidth);
-        }
+//        }
         html.appendHtmlConstant("</colgroup>");
 
         // first row contains host names
-        html.appendHtmlConstant("<thead><tr><th class='cellTableHeader'>Hosts&nbsp;&rarr;<br/>Groups&nbsp;&darr;</th>");
-        for (int i = this.hostIndex; i < endIndex; i++) {
-            HostInfo host = hosts.get(i);
-            html.appendHost(host);
-        }
+        html.appendHtmlConstant("<thead><tr><th class='cellTableHeader'>Groups&nbsp;&darr;</th>");
+//        for (int i = this.hostIndex; i < endIndex; i++) {
+//            HostInfo host = hosts.get(i);
+//            html.appendHost(host);
+//        }
+        // Custer header
+        html.appendHtmlConstant("<th class='cellTableHeader'>Members</th>");
         html.appendHtmlConstant("</tr></thead>");
+
+
 
         // remaining rows contain server groups and server instances
         html.appendHtmlConstant("<tbody>");
         for (ServerGroup group : groups) {
-            for (int serverIndex = 0; serverIndex < group.maxServersPerHost; serverIndex++) {
+//            for (int serverIndex = 0; serverIndex < group.maxServersPerHost; serverIndex++) {
                 html.appendHtmlConstant("<tr>");
-                if (serverIndex == 0) {
-                    html.appendServerGroup(group);
+//                if (serverIndex == 0) {
+                html.appendServerGroup(group);
+//                }
+                List<HostInfo> srvhosts = group.getHosts();
+                if (srvhosts.isEmpty()) {
+                    html.emptyCell();
                 }
-                for (int i = this.hostIndex; i < endIndex; i++) {
-                    HostInfo host = hosts.get(i);
-                    List<ServerInstance> servers = group.serversPerHost.get(host);
-                    if (servers.isEmpty() || serverIndex >= servers.size()) {
-                        html.emptyCell();
-                    } else {
-                        html.appendServer(group, host.getName(), servers.get(serverIndex));
+                else {
+                    html.appendHtmlConstant("<td class='cellTableCell domainOverviewCell'><table class='default-cell-table topology' cellspacing='0'>");
+                    html.appendHtmlConstant("<thead><tr>");
+                    for (HostInfo host : srvhosts) {
+                        List<ServerInstance> servers = group.serversPerHost.get(host);
+                        if (servers.size() >= 1) {
+                            html.appendHost(host, servers.size());
+                        }
+//                        else {
+//                            html.appendHost(host);
+//                        }
                     }
+                    html.appendHtmlConstant("</tr></thead><tbody><tr>");
+                    for (HostInfo host : srvhosts) {
+                        List<ServerInstance> servers = group.serversPerHost.get(host);
+                        if (!servers.isEmpty()) {
+                            for (ServerInstance s : servers) {
+                                html.appendServer(group, host.getName(), s);
+                            }
+                        }
+                    }
+                    html.appendHtmlConstant("</tr></tbody>").endTable();
+                    html.appendHtmlConstant("</td>");
                 }
+
+//                for (int i = this.hostIndex; i < endIndex; i++) {
+//                    HostInfo host = hosts.get(i);
+//                    List<ServerInstance> servers = group.serversPerHost.get(host);
+
+//                    if (servers.isEmpty() || serverIndex >= servers.size()) {
+//                        html.emptyCell();
+//                    } else {
+//                        html.appendServer(group, host.getName(), servers.get(serverIndex));
+//                    }
+//                }
+
                 html.appendHtmlConstant("</tr>");
-            }
+//            }
         }
         html.appendHtmlConstant("</tbody>").endTable();
 

@@ -18,6 +18,13 @@
  */
 package org.jboss.as.console.client.domain.topology;
 
+import static org.jboss.as.console.client.domain.model.ServerFlag.RELOAD_REQUIRED;
+import static org.jboss.as.console.client.domain.model.ServerFlag.RESTART_REQUIRED;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.resources.client.ImageResource;
 import com.google.gwt.safehtml.shared.SafeHtml;
@@ -31,13 +38,6 @@ import org.jboss.ballroom.client.rbac.SecurityContext;
 import org.jboss.ballroom.client.rbac.SecurityService;
 import org.jboss.ballroom.client.spi.Framework;
 import org.jboss.ballroom.client.widgets.icons.Icons;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
-import static org.jboss.as.console.client.domain.model.ServerFlag.RELOAD_REQUIRED;
-import static org.jboss.as.console.client.domain.model.ServerFlag.RESTART_REQUIRED;
 
 /**
  * Contains most of the html generator code used in {@link TopologyView}. The generated html contains several <a
@@ -93,14 +93,26 @@ final class HtmlGenerator {
         return this;
     }
 
+    HtmlGenerator appendHost(final HostInfo host, int colspan) {
+        appendHtmlConstant("<th colspan='" + colspan + "' class='smallTableHeader cellTableHeader'>");
+        if (host.isController()) {
+            appendIcon(ConsoleIcons.INSTANCE.star(), "Domain Controller");
+        }
+        startLine().appendEscaped(host.getName()).endLine();
+//        startLine().appendHtmlConstant("Domain: ").appendHtmlConstant(host.isController() ? "Controller" : "Member")
+//                .endLine();
+        html.appendHtmlConstant("</th>");
+        return this;
+    }
+
     HtmlGenerator appendServerGroup(final ServerGroup group) {
-        if (group.maxServersPerHost > 1) {
-            appendHtmlConstant("<td class='groupColumn domainOverviewCell cellTableCell endOfServerGroup " +
-                    group.cssClassname + "' rowspan='" + group.maxServersPerHost + "'>");
-        } else {
+//        if (group.maxServersPerHost > 1) {
+//            appendHtmlConstant("<td class='groupColumn domainOverviewCell cellTableCell endOfServerGroup " +
+//                    group.cssClassname + "' rowspan='" + group.maxServersPerHost + "'>");
+//        } else {
             appendHtmlConstant("<td class='groupColumn domainOverviewCell cellTableCell endOfServerGroup " +
                     group.cssClassname + "'>");
-        }
+//        }
         startLine().appendEscaped(group.name).endLine();
         if (group.profile != null) {
             startLine().appendEscaped("Profile: " + group.profile).endLine();
@@ -123,6 +135,62 @@ final class HtmlGenerator {
     }
 
     HtmlGenerator appendServer(final ServerGroup group, final String host, final ServerInstance server) {
+        ImageResource icon;
+        String tooltip = "";
+        if (server.isRunning()) {
+            if (server.getFlag() != null) {
+                icon = Icons.INSTANCE.status_warn();
+                if (server.getFlag() == RELOAD_REQUIRED) {
+                    tooltip = "Server has to be reloaded";
+                } else if (server.getFlag() == RESTART_REQUIRED) {
+                    tooltip = "Server has to be restarted";
+                }
+            } else {
+                tooltip = "Server is up and running";
+                icon = Icons.INSTANCE.status_good();
+            }
+        } else {
+            tooltip = "Server is stopped";
+            icon = Icons.INSTANCE.status_bad();
+        }
+        appendHtmlConstant("<td class='cellTableCell domainOverviewCell " + group.cssClassname + "_light" +
+                "' title='" + tooltip + "'>");
+
+        startLine().appendIcon(icon, tooltip).appendEscaped(server.getName()).endLine();
+        if (server.getSocketBindings().size() > 0) {
+            Set<String> sockets = server.getSocketBindings().keySet();
+            String first = sockets.iterator().next();
+            startLine().appendHtmlConstant("Socket Binding: ").appendEscaped(first).endLine();
+//            startLine().appendHtmlConstant("Ports: +").appendEscaped(server.getSocketBindings().get(first)).endLine();
+            String port = server.getSocketBindings().get(first);
+            int http = Integer.parseInt(port) + 8080;
+            int rmi = Integer.parseInt(port) + 4447;
+            startLine()
+                    .appendHtmlConstant("HTTP: ").appendEscaped(" " + http + " ")
+                    .appendHtmlConstant("RMI: ").appendEscaped(" " + rmi).endLine();
+        }
+
+        SecurityContext securityContext = findContext("/host=" + host + "/server-config=" + server.getName());
+        startLinks(securityContext, false);
+        String uniqueServerName = host + "_" + server.getName();
+        if (server.isRunning()) {
+            appendLifecycleLink(STOP_SERVER_ID + uniqueServerName, null, host, server.getName(), "Stop Server");
+            appendLifecycleLink(KILL_SERVER_ID + uniqueServerName, null, host, server.getName(), "Force Shutdown");
+            if (server.getFlag() == RELOAD_REQUIRED) {
+                appendHtmlConstant("<br/>");
+                appendLifecycleLink(RELOAD_SERVER_ID + uniqueServerName, null, host, server.getName(),
+                        "Reload Server");
+            }
+        } else {
+            appendLifecycleLink(START_SERVER_ID + uniqueServerName, null, host, server.getName(), "Start Server");
+        }
+        endLinks();
+
+        appendHtmlConstant("</td>");
+        return this;
+    }
+
+    HtmlGenerator appendServerWithHost(final ServerGroup group, final String host, final ServerInstance server) {
         ImageResource icon;
         String tooltip = "";
         if (server.isRunning()) {

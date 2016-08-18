@@ -2468,8 +2468,13 @@ input[type="checkbox"] {
 
 
 .topology .cellTableHeader {
-    padding-top: 15px;
-    padding-bottom: 15px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+.topology .smallTableHeader .cellTableHeader {
+    padding-top: 5px;
+    padding-bottom: 5px;
 }
 
 .topology .cellTableCell:first-of-type {
