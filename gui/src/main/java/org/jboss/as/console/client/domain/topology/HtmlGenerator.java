@@ -162,7 +162,13 @@ final class HtmlGenerator {
             Set<String> sockets = server.getSocketBindings().keySet();
             String first = sockets.iterator().next();
             startLine().appendHtmlConstant("Socket Binding: ").appendEscaped(first).endLine();
-            startLine().appendHtmlConstant("Ports: +").appendEscaped(server.getSocketBindings().get(first)).endLine();
+            //startLine().appendHtmlConstant("Ports: +").appendEscaped(server.getSocketBindings().get(first)).endLine();
+            String port = server.getSocketBindings().get(first);
+            int http = Integer.parseInt(port) + 8080;
+            int rmi = Integer.parseInt(port) + 4447;
+            startLine()
+                    .appendHtmlConstant("HTTP: ").appendEscaped(" " + http + " ")
+                    .appendHtmlConstant("RMI: ").appendEscaped(" " + rmi).endLine();
         }
 
         SecurityContext securityContext = findContext("/host=" + host + "/server-config=" + server.getName());
