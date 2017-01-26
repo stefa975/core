@@ -26,4 +26,5 @@
     <source path="gui" />
 
     <stylesheet src="workbench.css" />
+    <stylesheet src="skin.css" />
 </module>

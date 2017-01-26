@@ -19,8 +19,6 @@
 
 package org.jboss.as.console.client.core;
 
-import static org.jboss.as.console.client.StringUtils.ELLIPSIS;
-
 import com.google.common.base.CharMatcher;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.Element;
@@ -41,6 +39,9 @@ import com.google.gwt.user.client.ui.*;
 import com.google.inject.Inject;
 import com.gwtplatform.mvp.client.proxy.PlaceManager;
 import com.gwtplatform.mvp.shared.proxy.PlaceRequest;
+
+import java.util.Set;
+
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.ProductConfig;
 import org.jboss.as.console.client.core.message.MessageCenter;
@@ -53,7 +54,7 @@ import org.jboss.as.console.client.shared.model.PerspectiveStore;
 import org.jboss.as.console.client.widgets.popups.DefaultPopup;
 import org.jboss.ballroom.client.widgets.window.Feedback;
 
-import java.util.Set;
+import static org.jboss.as.console.client.StringUtils.ELLIPSIS;
 
 /**
  * Top level header, gives access to main applications.
@@ -106,7 +107,7 @@ public class Header implements ValueChangeHandler<String> {
         LayoutPanel top = new LayoutPanel();
         top.setStyleName("header-top");
         LayoutPanel bottom = new LayoutPanel();
-        bottom.setStyleName("header-bottom");
+        bottom.setStyleName("header-bottom header-bottom-env");
 
         outerLayout.add(line);
         outerLayout.add(top);

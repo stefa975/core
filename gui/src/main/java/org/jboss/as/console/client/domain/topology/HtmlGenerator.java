@@ -18,16 +18,17 @@
  */
 package org.jboss.as.console.client.domain.topology;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.resources.client.ImageResource;
 import com.google.gwt.safehtml.shared.SafeHtml;
 import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
 import com.google.gwt.user.client.ui.HTMLPanel;
 import com.google.gwt.user.client.ui.Image;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 import org.jboss.as.console.client.domain.model.ServerInstance;
 import org.jboss.as.console.client.widgets.icons.ConsoleIcons;
 import org.jboss.ballroom.client.rbac.AuthorisationDecision;
@@ -93,14 +94,26 @@ final class HtmlGenerator {
         return this;
     }
 
+    HtmlGenerator appendHost(final HostInfo host, int colspan) {
+        appendHtmlConstant("<th colspan='" + colspan + "' class='smallTableHeader cellTableHeader'>");
+        if (host.isController()) {
+            appendIcon(ConsoleIcons.INSTANCE.star(), "Domain Controller");
+        }
+        startLine().appendEscaped(host.getName()).endLine();
+//        startLine().appendHtmlConstant("Domain: ").appendHtmlConstant(host.isController() ? "Controller" : "Member")
+//                .endLine();
+        html.appendHtmlConstant("</th>");
+        return this;
+    }
+
     HtmlGenerator appendServerGroup(final ServerGroup group) {
-        if (group.maxServersPerHost > 1) {
-            appendHtmlConstant("<td class='groupColumn domainOverviewCell cellTableCell endOfServerGroup " +
-                    group.cssClassname + "' rowspan='" + group.maxServersPerHost + "'>");
-        } else {
+//        if (group.maxServersPerHost > 1) {
+//            appendHtmlConstant("<td class='groupColumn domainOverviewCell cellTableCell endOfServerGroup " +
+//                    group.cssClassname + "' rowspan='" + group.maxServersPerHost + "'>");
+//        } else {
             appendHtmlConstant("<td class='groupColumn domainOverviewCell cellTableCell endOfServerGroup " +
                     group.cssClassname + "'>");
-        }
+//        }
         startLine().appendEscaped(group.name).endLine();
         if (group.profile != null) {
             startLine().appendEscaped("Profile: " + group.profile).endLine();

@@ -63,8 +63,9 @@ public class MainLayoutViewImpl extends ViewImpl
         headerPanel.setStyleName("header-panel");
         headerPanel.getElement().setId("header");
 
+//        String style = "footer-panel-" + System.getProperty("environment", "utv");
         footerPanel = new LayoutPanel();
-        footerPanel.setStyleName("footer-panel");
+        footerPanel.setStyleName("footer-panel footer-panel-env");
         footerPanel.getElement().setId("footer");
 
         panel = new DockLayoutPanel(Style.Unit.PX);
