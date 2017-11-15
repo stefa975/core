@@ -29,6 +29,7 @@ import com.gwtplatform.mvp.client.proxy.Gatekeeper;
 import com.gwtplatform.mvp.client.proxy.PlaceManager;
 import com.gwtplatform.mvp.shared.proxy.TokenFormatter;
 import org.jboss.as.console.client.administration.accesscontrol.AccessControlFinder;
+import org.jboss.as.console.client.administration.accesscontrol.ui.SSOAccessControlPresenter;
 import org.jboss.as.console.client.administration.audit.AuditLogPresenter;
 import org.jboss.as.console.client.analytics.NavigationTracker;
 import org.jboss.as.console.client.auth.CurrentUser;
@@ -63,6 +64,7 @@ import org.jboss.as.console.client.domain.runtime.DomainRuntimePresenter;
 import org.jboss.as.console.client.domain.runtime.DomainRuntimegateKeeper;
 import org.jboss.as.console.client.domain.runtime.NoServerPresenter;
 import org.jboss.as.console.client.domain.topology.TopologyPresenter;
+import org.jboss.as.console.client.meta.Capabilities;
 import org.jboss.as.console.client.plugins.RequiredResourcesRegistry;
 import org.jboss.as.console.client.plugins.RuntimeExtensionRegistry;
 import org.jboss.as.console.client.plugins.SearchIndexRegistry;
@@ -81,11 +83,13 @@ import org.jboss.as.console.client.shared.general.PropertiesPresenter;
 import org.jboss.as.console.client.shared.general.SocketBindingPresenter;
 import org.jboss.as.console.client.shared.help.HelpSystem;
 import org.jboss.as.console.client.shared.homepage.HomepagePresenter;
+import org.jboss.as.console.client.shared.hosts.ConfigurationChangesPresenter;
 import org.jboss.as.console.client.shared.model.SubsystemLoader;
 import org.jboss.as.console.client.shared.patching.PatchManagementPresenter;
 import org.jboss.as.console.client.shared.runtime.RuntimeBaseAddress;
 import org.jboss.as.console.client.shared.runtime.activemq.ActivemqMetricPresenter;
 import org.jboss.as.console.client.shared.runtime.ds.DataSourceMetricPresenter;
+import org.jboss.as.console.client.shared.runtime.elytron.ElytronRuntimePresenter;
 import org.jboss.as.console.client.shared.runtime.env.EnvironmentPresenter;
 import org.jboss.as.console.client.shared.runtime.jms.JMSMetricPresenter;
 import org.jboss.as.console.client.shared.runtime.jpa.JPAMetricPresenter;
@@ -99,10 +103,16 @@ import org.jboss.as.console.client.shared.runtime.ws.WebServiceRuntimePresenter;
 import org.jboss.as.console.client.shared.state.ReloadState;
 import org.jboss.as.console.client.shared.subsys.Baseadress;
 import org.jboss.as.console.client.shared.subsys.activemq.ActivemqFinder;
+import org.jboss.as.console.client.shared.subsys.activemq.JMSBridgePresenter;
 import org.jboss.as.console.client.shared.subsys.batch.BatchPresenter;
 import org.jboss.as.console.client.shared.subsys.configadmin.ConfigAdminPresenter;
 import org.jboss.as.console.client.shared.subsys.ejb3.EEPresenter;
 import org.jboss.as.console.client.shared.subsys.ejb3.EJB3Presenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronFactoryPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronFinder;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronMapperPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronSecurityRealmPresenter;
 import org.jboss.as.console.client.shared.subsys.generic.GenericSubsystemPresenter;
 import org.jboss.as.console.client.shared.subsys.iiopopenjdk.IiopOpenJdkPresenter;
 import org.jboss.as.console.client.shared.subsys.infinispan.v3.CacheFinderPresenter;
@@ -134,7 +144,12 @@ import org.jboss.as.console.client.shared.subsys.picketlink.ServiceProviderPrese
 import org.jboss.as.console.client.shared.subsys.remoting.RemotingPresenter;
 import org.jboss.as.console.client.shared.subsys.security.v3.SecDomainFinder;
 import org.jboss.as.console.client.shared.subsys.security.v3.SecDomainPresenter;
-import org.jboss.as.console.client.shared.subsys.undertow.*;
+import org.jboss.as.console.client.shared.subsys.undertow.FilterPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.HttpMetricPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.HttpPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.ServletPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.UndertowFinder;
+import org.jboss.as.console.client.shared.subsys.undertow.UndertowPresenter;
 import org.jboss.as.console.client.shared.subsys.web.WebPresenter;
 import org.jboss.as.console.client.shared.subsys.ws.DomainEndpointStrategy;
 import org.jboss.as.console.client.shared.subsys.ws.EndpointRegistry;
@@ -147,6 +162,7 @@ import org.jboss.as.console.client.standalone.runtime.StandaloneRuntimePresenter
 import org.jboss.as.console.client.standalone.runtime.VMMetricsPresenter;
 import org.jboss.as.console.client.tools.ToolsPresenter;
 import org.jboss.as.console.client.tools.modelling.workbench.repository.RepositoryPresenter;
+import org.jboss.as.console.client.v3.deployment.DeploymentBrowseContentPresenter;
 import org.jboss.as.console.client.v3.deployment.DeploymentDetailsPresenter;
 import org.jboss.as.console.client.v3.deployment.DomainDeploymentFinder;
 import org.jboss.as.console.client.v3.deployment.StandaloneDeploymentFinder;
@@ -224,6 +240,7 @@ public interface CoreUI {
     UploadHandler getUploadHHandler();
 
     ApplicationMetaData getApplicationMetaData();
+    Capabilities getCapabilities();
 
     // ----------------------------------------------------------------------
     AsyncProvider<HomepagePresenter> getHomepagePresenter();
@@ -277,6 +294,14 @@ public interface CoreUI {
     AsyncProvider<org.jboss.as.console.client.shared.subsys.activemq.connections.MsgConnectionsPresenter> getActivemqMsgConnectionsPresenter();
     AsyncProvider<org.jboss.as.console.client.shared.subsys.messaging.cluster.MsgClusteringPresenter> getMsgClusteringPresenter();
     AsyncProvider<org.jboss.as.console.client.shared.subsys.activemq.cluster.MsgClusteringPresenter> getActivemqMsgClusteringPresenter();
+    AsyncProvider<JMSBridgePresenter> getJMSBridgePresenter();
+
+    AsyncProvider<ElytronPresenter> getElytronPresenter();
+    AsyncProvider<ElytronRuntimePresenter> getElytronRuntimePresenter();
+    AsyncProvider<ElytronFactoryPresenter> getElytronFactoryPresenter();
+    AsyncProvider<ElytronMapperPresenter> getElytronMapperPresenter();
+    AsyncProvider<ElytronSecurityRealmPresenter> getElytronSecurityRealmPresenter();
+    AsyncProvider<ElytronFinder> getElytronFinder();
 
     AsyncProvider<LogFilesPresenter> getLogFilesPresenter();
     AsyncProvider<LogViewerPresenter> getLogViewerPresenter();
@@ -292,6 +317,7 @@ public interface CoreUI {
     AsyncProvider<HostPropertiesPresenter> getHostPropertiesPresenter();
     AsyncProvider<HostJVMPresenter> getHostJVMPresenter();
     AsyncProvider<HostInterfacesPresenter> getHostInterfacesPresenter();
+    AsyncProvider<ConfigurationChangesPresenter> getConfigurationChangesPresenter();
 
     AsyncProvider<StandaloneServerPresenter> getStandaloneServerPresenter();
 
@@ -351,6 +377,7 @@ public interface CoreUI {
     AsyncProvider<PicketLinkFinder> getPicketLinkFinder();
     AsyncProvider<FederationPresenter> getFederationPresenter();
     AsyncProvider<ServiceProviderPresenter> getServiceProviderPresenter();
+    AsyncProvider<SSOAccessControlPresenter> getSSOAccessControlPresenter();
 
     // Administration
     AsyncProvider<AccessControlFinder> getRbacFinder();
@@ -376,6 +403,7 @@ public interface CoreUI {
     AsyncProvider<StandaloneDeploymentFinder> getStandaloneDeploymentFinder();
     AsyncProvider<DeploymentDetailsPresenter> getDeplymentDetailsPresenter();
     AsyncProvider<DeploymentScannerPresenter> getDeploymentScannerPresenter();
+    AsyncProvider<DeploymentBrowseContentPresenter> getDeploymentBrowseContentPresenter();
 
     Dispatcher getCircuitDispatcher();
 

@@ -192,13 +192,17 @@ public class HomepageView extends SuspendableViewImpl implements HomepagePresent
         }
 
         if (su) {
-            HomepageSection accessControlSection = new HomepageSection(NameTokens.AccessControlFinder,
+            String accessControlNameToken = NameTokens.AccessControlFinder;
+            if (bootstrapContext.isSsoEnabled())
+                accessControlNameToken = NameTokens.SSOAccessControlFinder;
+
+            HomepageSection accessControlSection = new HomepageSection(accessControlNameToken,
                     constants.homepage_access_control_section(),
                     constants.homepage_access_control_step_intro(),
                     constants.homepage_access_control_step1(),
                     constants.homepage_access_control_step2());
             accessControlModule = new HomepageModule(
-                    NameTokens.AccessControlFinder,
+                    accessControlNameToken,
                     "images/homepage/access_control.png",
                     "Access Control",
                     constants.homepage_access_control_sub_header(),
@@ -262,7 +266,7 @@ public class HomepageView extends SuspendableViewImpl implements HomepagePresent
                     constants.homepage_help_wildfly_issues_text()));
             generalResources.appendChild(helpLink("http://wildfly.org/news/", constants.homepage_help_latest_news()));
 
-            getHelp.appendChild(helpLink("http://www.jboss.org/developer-materials/",
+            getHelp.appendChild(helpLink("http://developers.redhat.com/products/eap/learn/",
                     constants.homepage_help_tutorials_text()));
             getHelp.appendChild(helpLink("https://community.jboss.org/en/wildfly?view=discussions",
                     constants.homepage_help_user_forums_text()));

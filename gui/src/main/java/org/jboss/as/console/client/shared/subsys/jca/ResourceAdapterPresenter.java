@@ -1,5 +1,9 @@
 package org.jboss.as.console.client.shared.subsys.jca;
 
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.inject.Inject;
 import com.google.web.bindery.event.shared.EventBus;
@@ -18,12 +22,13 @@ import org.jboss.as.console.client.rbac.SecurityFramework;
 import org.jboss.as.console.client.shared.subsys.Baseadress;
 import org.jboss.as.console.client.shared.subsys.RevealStrategy;
 import org.jboss.as.console.client.v3.ResourceDescriptionRegistry;
+import org.jboss.as.console.client.v3.behaviour.ModelNodeAdapter;
 import org.jboss.as.console.client.v3.dmr.AddressTemplate;
+import org.jboss.as.console.client.v3.dmr.Operation;
 import org.jboss.as.console.client.v3.dmr.ResourceAddress;
 import org.jboss.as.console.client.v3.dmr.ResourceDescription;
 import org.jboss.as.console.client.v3.widgets.AddResourceDialog;
 import org.jboss.as.console.mbui.behaviour.CoreGUIContext;
-import org.jboss.as.console.mbui.behaviour.ModelNodeAdapter;
 import org.jboss.as.console.spi.RequiredResources;
 import org.jboss.as.console.spi.SearchIndex;
 import org.jboss.ballroom.client.rbac.SecurityContext;
@@ -35,10 +40,6 @@ import org.jboss.dmr.client.dispatch.impl.DMRAction;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.useware.kernel.gui.behaviour.StatementContext;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
 import static org.jboss.dmr.client.ModelDescriptionConstants.*;
 
 /**
@@ -46,26 +47,6 @@ import static org.jboss.dmr.client.ModelDescriptionConstants.*;
  */
 public class ResourceAdapterPresenter
         extends Presenter<ResourceAdapterPresenter.MyView, ResourceAdapterPresenter.MyProxy> {
-
-    private final PlaceManager placeManager;
-    private RevealStrategy revealStrategy;
-    private DispatchAsync dispatcher;
-    private DefaultWindow window;
-
-    private final ResourceDescriptionRegistry descriptionRegistry;
-    private final SecurityFramework securityFramework;
-    private final CoreGUIContext statementContext;
-
-    private String selectedAdapter;
-
-    public StatementContext getStatementContext() {
-        return statementContext;
-    }
-
-    public DispatchAsync getDispatcher() {
-        return dispatcher;
-    }
-
 
     @ProxyCodeSplit
     @NameToken(NameTokens.ResourceAdapterPresenter)
@@ -80,17 +61,28 @@ public class ResourceAdapterPresenter
     @SearchIndex(keywords = {"jca", "resource-adapter", "connector", "workmanager", "bootstrap-context"})
     public interface MyProxy extends Proxy<ResourceAdapterPresenter>, Place {
     }
-
     public interface MyView extends View {
+
         void setPresenter(ResourceAdapterPresenter presenter);
+
         void setAdapter(Property payload);
     }
+    private final PlaceManager placeManager;
+    private final ResourceDescriptionRegistry descriptionRegistry;
+    private final SecurityFramework securityFramework;
+    private final CoreGUIContext statementContext;
+    private RevealStrategy revealStrategy;
+    private DispatchAsync dispatcher;
+    private DefaultWindow window;
+    private String selectedAdapter;
+
 
     @Inject
     public ResourceAdapterPresenter(
             EventBus eventBus, MyView view, MyProxy proxy,
             PlaceManager placeManager, RevealStrategy revealStrategy,
-            DispatchAsync dispatcher, ResourceDescriptionRegistry descriptionRegistry, SecurityFramework securityFramework,
+            DispatchAsync dispatcher, ResourceDescriptionRegistry descriptionRegistry,
+            SecurityFramework securityFramework,
             CoreGUIContext statementContext) {
         super(eventBus, view, proxy);
 
@@ -102,6 +94,14 @@ public class ResourceAdapterPresenter
         this.securityFramework = securityFramework;
         this.statementContext = statementContext;
 
+    }
+
+    public StatementContext getStatementContext() {
+        return statementContext;
+    }
+
+    public DispatchAsync getDispatcher() {
+        return dispatcher;
     }
 
     @Override
@@ -190,7 +190,8 @@ public class ResourceAdapterPresenter
                 ModelNode response = result.get();
 
                 if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.failedToCreateResource(fqAddress.toString()), response.getFailureDescription());
+                    Console.error(Console.MESSAGES.failedToCreateResource(fqAddress.toString()),
+                            response.getFailureDescription());
                 } else {
 
                     Console.info(Console.MESSAGES.successfullyAdded(fqAddress.toString()));
@@ -202,12 +203,11 @@ public class ResourceAdapterPresenter
     }
 
 
-
     public void onSaveChildResource(AddressTemplate address, String name, Map changeset) {
         ResourceAddress fqAddress = address.resolve(statementContext, selectedAdapter, name);
 
         final ModelNodeAdapter adapter = new ModelNodeAdapter();
-        ModelNode operation = adapter.fromChangeset(changeset, fqAddress);
+        ModelNode operation = adapter.fromChangeSet(fqAddress, changeset);
 
         dispatcher.execute(new DMRAction(operation), new AsyncCallback<DMRResponse>() {
             @Override
@@ -219,7 +219,8 @@ public class ResourceAdapterPresenter
             public void onSuccess(DMRResponse dmrResponse) {
                 ModelNode response = dmrResponse.get();
                 if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.failedToModifyResource(fqAddress.toString()), response.getFailureDescription());
+                    Console.error(Console.MESSAGES.failedToModifyResource(fqAddress.toString()),
+                            response.getFailureDescription());
                 } else {
                     Console.info(Console.MESSAGES.successfullyModifiedResource(fqAddress.toString()));
                 }
@@ -251,12 +252,10 @@ public class ResourceAdapterPresenter
             public void onSuccess(DMRResponse dmrResponse) {
 
                 ModelNode response = dmrResponse.get();
-                if(response.isFailure())
-                {
-                    Console.error(Console.MESSAGES.failedToRemoveResource(fqAddress.toString()), response.getFailureDescription());
-                }
-                else
-                {
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.failedToRemoveResource(fqAddress.toString()),
+                            response.getFailureDescription());
+                } else {
                     Console.info(Console.MESSAGES.successfullyRemoved(fqAddress.toString()));
                 }
 
@@ -288,7 +287,8 @@ public class ResourceAdapterPresenter
                 ModelNode response = result.get();
 
                 if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.failedToRemoveResource(fqAddress.toString()), response.getFailureDescription());
+                    Console.error(Console.MESSAGES.failedToRemoveResource(fqAddress.toString()),
+                            response.getFailureDescription());
                 } else {
 
                     Console.info(Console.MESSAGES.successfullyRemoved(fqAddress.toString()));
@@ -304,7 +304,7 @@ public class ResourceAdapterPresenter
         ResourceAddress fqAddress = address.resolve(statementContext, name);
 
         final ModelNodeAdapter adapter = new ModelNodeAdapter();
-        ModelNode operation = adapter.fromChangeset(changeset, fqAddress);
+        ModelNode operation = adapter.fromChangeSet(fqAddress, changeset);
 
         dispatcher.execute(new DMRAction(operation), new AsyncCallback<DMRResponse>() {
             @Override
@@ -316,7 +316,8 @@ public class ResourceAdapterPresenter
             public void onSuccess(DMRResponse dmrResponse) {
                 ModelNode response = dmrResponse.get();
                 if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.failedToModifyResource(fqAddress.toString()), response.getFailureDescription());
+                    Console.error(Console.MESSAGES.failedToModifyResource(fqAddress.toString()),
+                            response.getFailureDescription());
                 } else {
                     Console.info(Console.MESSAGES.successfullyModifiedResource(fqAddress.toString()));
                 }
@@ -326,6 +327,46 @@ public class ResourceAdapterPresenter
         });
 
     }
+
+    public void onSaveComplexAttribute(AddressTemplate address, final String connectionDefinitionName,
+            String complexAttributeName, final ModelNode payload) {
+
+        ResourceAddress fqAddress = address.resolve(statementContext, selectedAdapter, connectionDefinitionName);
+        // remove the undefined values
+        for (Property prop : payload.asPropertyList()) {
+            if (!prop.getValue().isDefined()) {
+                payload.remove(prop.getName());
+            }
+        }
+        Operation operation;
+        if (payload.asList().size() > 0) {
+            operation = new Operation.Builder(WRITE_ATTRIBUTE_OPERATION, fqAddress)
+                    .param(NAME, complexAttributeName)
+                    .param(VALUE, payload)
+                    .build();
+        } else {
+            // if the payload is empty, undefine the complex attribute
+            // otherwise an empty attribute is a defined attribute and as the user wants to remove all
+            // values, it is better to undefine it.
+            operation = new Operation.Builder(UNDEFINE_ATTRIBUTE_OPERATION, fqAddress)
+                    .param(NAME, complexAttributeName)
+                    .build();
+        }
+
+        dispatcher.execute(new DMRAction(operation), new AsyncCallback<DMRResponse>() {
+            @Override
+            public void onFailure(final Throwable caught) {
+                Console.error(Console.MESSAGES.modificationFailed("Connection Definition"), caught.getMessage());
+            }
+
+            @Override
+            public void onSuccess(final DMRResponse response) {
+                Console.info(Console.MESSAGES.modified("Connection Definition " + connectionDefinitionName));
+                loadAdapter();
+            }
+        });
+    }
+
 
     public ResourceDescriptionRegistry getDescriptionRegistry() {
         return descriptionRegistry;
@@ -389,7 +430,6 @@ public class ResourceAdapterPresenter
     public void closeDialoge() {
         window.hide();
     }
-
 
 
     public PlaceManager getPlaceManager() {

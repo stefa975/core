@@ -1,5 +1,13 @@
 package org.jboss.as.console.client.standalone;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.Scheduler;
 import com.google.gwt.resources.client.ExternalTextResource;
@@ -11,6 +19,7 @@ import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.IsWidget;
 import com.google.gwt.user.client.ui.LayoutPanel;
+import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.SplitLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.view.client.ProvidesKey;
@@ -35,14 +44,6 @@ import org.jboss.as.console.client.widgets.nav.v3.MenuDelegate;
 import org.jboss.as.console.client.widgets.nav.v3.PreviewFactory;
 import org.jboss.as.console.client.widgets.nav.v3.ValueProvider;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import static com.google.common.base.CaseFormat.LOWER_HYPHEN;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 
@@ -64,7 +65,8 @@ public class ColumnServerView extends SuspendableViewImpl
             NameTokens.PicketLinkFinder,
             NameTokens.UndertowFinder,
             NameTokens.DataSourceFinder,
-            NameTokens.ResourceAdapterFinder
+            NameTokens.ResourceAdapterFinder,
+            NameTokens.ElytronFinder
     };
 
     private final FinderColumn<SubsystemLink> subsystems;
@@ -515,7 +517,7 @@ public class ColumnServerView extends SuspendableViewImpl
                         || (contentCanvas.getWidgetCount() ==0)
                 ) {
                     contentCanvas.clear();
-                    contentCanvas.add(new HTML(html));
+                    contentCanvas.add(new ScrollPanel(new HTML(html)));
         }
 
     }

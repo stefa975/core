@@ -1,5 +1,8 @@
 package org.jboss.as.console.client.shared.subsys.activemq.cluster;
 
+import java.util.List;
+import java.util.Map;
+
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.inject.Inject;
 import com.google.web.bindery.event.shared.EventBus;
@@ -23,7 +26,6 @@ import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqBroadcas
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqClusterConnection;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqDiscoveryGroup;
 import org.jboss.as.console.client.v3.ResourceDescriptionRegistry;
-import org.jboss.as.console.client.v3.dmr.ResourceDescription;
 import org.jboss.as.console.client.v3.behaviour.CrudOperationDelegate;
 import org.jboss.as.console.client.v3.dmr.AddressTemplate;
 import org.jboss.as.console.client.widgets.forms.ApplicationMetaData;
@@ -32,10 +34,7 @@ import org.jboss.as.console.mbui.behaviour.CoreGUIContext;
 import org.jboss.as.console.mbui.behaviour.ModelNodeAdapter;
 import org.jboss.as.console.mbui.dmr.ResourceAddress;
 import org.jboss.as.console.mbui.widgets.AddResourceDialog;
-import org.jboss.as.console.mbui.widgets.ModelNodeFormBuilder;
 import org.jboss.as.console.spi.RequiredResources;
-import org.jboss.as.console.spi.SearchIndex;
-import org.jboss.ballroom.client.rbac.SecurityContext;
 import org.jboss.ballroom.client.widgets.window.DefaultWindow;
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
@@ -44,11 +43,6 @@ import org.jboss.dmr.client.dispatch.impl.DMRAction;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.useware.kernel.gui.behaviour.FilteringStatementContext;
 import org.useware.kernel.gui.behaviour.StatementContext;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 import static org.jboss.dmr.client.ModelDescriptionConstants.*;
 
@@ -60,12 +54,47 @@ public class MsgClusteringPresenter
         extends Presenter<MsgClusteringPresenter.MyView, MsgClusteringPresenter.MyProxy>
         implements CommonMsgPresenter {
 
+    // ------------------------------------------------------ proxy & view
+    // @formatter:off
+    @ProxyCodeSplit
+    @NameToken(NameTokens.ActivemqMsgClusteringPresenter)
+    @RequiredResources(resources = {
+            "{selected.profile}/subsystem=messaging-activemq/server=*",
+            "{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/broadcast-group=*",
+            "{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/discovery-group=*",
+            "{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/cluster-connection=*"
+    }
+    )
+    public interface MyProxy extends Proxy<MsgClusteringPresenter>, Place {}
+    public interface MyView extends View {
+        void setPresenter(MsgClusteringPresenter presenter);
+        void setProvider(List<Property> result);
+        void setSelectedProvider(String currentServer);
+        void setBroadcastGroups(List<Property> groups);
+        void setDiscoveryGroups(List<Property> groups);
+        void setClusterConnection(List<Property> groups);
+    }
+    public static final AddressTemplate BROADCASTGROUP_ADDRESS = AddressTemplate
+            .of("{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/broadcast-group=*");
+    public static final AddressTemplate DISCOVERYGROUP_ADDRESS = AddressTemplate
+            .of("{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/discovery-group=*");
+    public static final AddressTemplate CLUSTERCONNECTION_ADDRESS = AddressTemplate
+            .of("{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/cluster-connection=*");
     private final CrudOperationDelegate operationDelegate;
-
+    private final PlaceManager placeManager;
+    // @formatter:on
+    private final SecurityFramework securityFramework;
+    private final ResourceDescriptionRegistry descriptionRegistry;
+    private final StatementContext statementContext;
+    private DispatchAsync dispatcher;
+    private DefaultWindow window = null;
+    private RevealStrategy revealStrategy;
+    private String currentServer = null;
     CrudOperationDelegate.Callback defaultOpCallbacks = new CrudOperationDelegate.Callback() {
         @Override
         public void onSuccess(AddressTemplate address, String name) {
-            Console.info(Console.MESSAGES.successfullyModifiedResource(address.resolve(statementContext, name).toString()));
+            Console.info(
+                    Console.MESSAGES.successfullyModifiedResource(address.resolve(statementContext, name).toString()));
             onReset();
         }
 
@@ -74,38 +103,6 @@ public class MsgClusteringPresenter
             Console.error(Console.MESSAGES.failedToModifyResource(addressTemplate.toString()), t.getMessage());
         }
     };
-
-    // ------------------------------------------------------ proxy & view
-    // @formatter:off
-    @ProxyCodeSplit
-    @NameToken(NameTokens.ActivemqMsgClusteringPresenter)
-    @RequiredResources(resources = {
-            "{selected.profile}/subsystem=messaging-activemq/server=*",
-            "{selected.profile}/subsystem=messaging-activemq/server={activemq.server}/broadcast-group=*"
-    }
-    )
-    @SearchIndex(keywords = {"jms", "messaging", "cluster", "broadcast", "discovery"})
-    public interface MyProxy extends Proxy<MsgClusteringPresenter>, Place {}
-
-    public interface MyView extends View {
-        void setPresenter(MsgClusteringPresenter presenter);
-        void setProvider(List<Property> result);
-        void setSelectedProvider(String currentServer);
-        void setBroadcastGroups(List<Property> groups);
-        void setDiscoveryGroups(List<ActivemqDiscoveryGroup> groups);
-        void setClusterConnection(List<ActivemqClusterConnection> groups);
-    }
-    // @formatter:on
-
-
-    private final PlaceManager placeManager;
-    private DispatchAsync dispatcher;
-    private DefaultWindow window = null;
-    private RevealStrategy revealStrategy;
-    private final SecurityFramework securityFramework;
-    private final ResourceDescriptionRegistry descriptionRegistry;
-    private final StatementContext statementContext;
-    private String currentServer = null;
     private EntityAdapter<ActivemqBroadcastGroup> bcastGroupAdapter;
     private EntityAdapter<ActivemqDiscoveryGroup> discGroupAdapter;
     private EntityAdapter<ActivemqClusterConnection> clusterConnectionsAdapter;
@@ -132,10 +129,11 @@ public class MsgClusteringPresenter
         this.statementContext = new FilteringStatementContext(coreGUIContext, new FilteringStatementContext.Filter() {
             @Override
             public String filter(String key) {
-                if("activemq.server".equals(key))
+                if ("activemq.server".equals(key)) {
                     return currentServer;
-                else
+                } else {
                     return null;
+                }
             }
 
             @Override
@@ -246,14 +244,7 @@ public class MsgClusteringPresenter
                             response.getFailureDescription());
                 } else {
                     List<Property> model = response.get(RESULT).asPropertyList();
-                    List<ActivemqDiscoveryGroup> groups = new ArrayList<>();
-                    for (Property prop : model) {
-                        ModelNode node = prop.getValue();
-                        ActivemqDiscoveryGroup entity = discGroupAdapter.fromDMR(node);
-                        entity.setName(prop.getName());
-                        groups.add(entity);
-                    }
-                    getView().setDiscoveryGroups(groups);
+                    getView().setDiscoveryGroups(model);
                 }
             }
         });
@@ -278,342 +269,18 @@ public class MsgClusteringPresenter
                             response.getFailureDescription());
                 } else {
                     List<Property> model = response.get(RESULT).asPropertyList();
-                    List<ActivemqClusterConnection> groups = new ArrayList<>();
-                    for (Property prop : model) {
-                        ModelNode node = prop.getValue();
-                        ActivemqClusterConnection entity = clusterConnectionsAdapter.fromDMR(node);
-                        entity.setName(prop.getName());
-                        groups.add(entity);
-                    }
-                    getView().setClusterConnection(groups);
+                    getView().setClusterConnection(model);
                 }
             }
         });
     }
 
-    @SuppressWarnings("unchecked")
-    public void saveBroadcastGroup(final String name, Map<String, Object> changeset) {
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("broadcast-group", name);
-
-        ModelNode addressNode = new ModelNode();
-        addressNode.get(ADDRESS).set(address);
-
-        ModelNode extra = null;
-        List<String> items = (List<String>) changeset.get("connectors");
-        if (items != null) {
-            extra = new ModelNode();
-            extra.get(OP).set(WRITE_ATTRIBUTE_OPERATION);
-            extra.get(NAME).set("connectors");
-            extra.get(ADDRESS).set(address);
-            extra.get(VALUE).setEmptyList();
-            for (String item : items) { extra.get(VALUE).add(item); }
-        }
-
-        ModelNode operation = extra != null ?
-                bcastGroupAdapter.fromChangeset(changeset, addressNode, extra) :
-                bcastGroupAdapter.fromChangeset(changeset, addressNode);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.modificationFailed("Broadcast Group " + name),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.modified("Broadcast Group " + name));
-                }
-                loadBroadcastGroups();
-            }
-        });
-    }
-
-    /*public void launchNewBroadcastGroupWizard() {
-        loadExistingSocketBindings(new AsyncCallback<List<String>>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                Console.error(Console.MESSAGES.failed("Loading socket bindings"), throwable.getMessage());
-            }
-
-            @Override
-            public void onSuccess(List<String> names) {
-                window = new DefaultWindow(Console.MESSAGES.createTitle("Broadcast Group"));
-                window.setWidth(480);
-                window.setHeight(450);
-                window.trapWidget(new NewBroadcastGroupWizard(MsgClusteringPresenter.this, names).asWidget());
-                window.setGlassEnabled(true);
-                window.center();
-            }
-        });
-    }
-*/
     public String getCurrentServer() {
         return currentServer;
     }
 
-    public void loadExistingSocketBindings(AsyncCallback<List<String>> callback) {
-        // TODO
-        callback.onSuccess(Collections.emptyList());
-    }
-
-    public void onCreateBroadcastGroup(final ActivemqBroadcastGroup entity) {
-        closeDialogue();
-
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("broadcast-group", entity.getName());
-
-        ModelNode operation = bcastGroupAdapter.fromEntity(entity);
-        operation.get(ADDRESS).set(address);
-        operation.get(OP).set(ADD);
-
-        List<String> values = entity.getConnectors();
-        if (!values.isEmpty()) {
-            ModelNode list = new ModelNode();
-            for (String con : values) { list.add(con); }
-            operation.get("connectors").set(list);
-        }
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.addingFailed("Broadcast Group " + entity.getName()),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.added("Broadcast Group " + entity.getName()));
-                }
-                loadBroadcastGroups();
-            }
-        });
-    }
-
-    public void onDeleteBroadcastGroup(final String name) {
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("broadcast-group", name);
-
-        ModelNode operation = new ModelNode();
-        operation.get(ADDRESS).set(address);
-        operation.get(OP).set(REMOVE);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.deletionFailed("Broadcast Group " + name),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.deleted("Broadcast Group " + name));
-                }
-                loadBroadcastGroups();
-            }
-        });
-    }
-
     public void closeDialogue() {
         window.hide();
-    }
-
-    public void saveDiscoveryGroup(final String name, Map<String, Object> changeset) {
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("discovery-group", name);
-
-        ModelNode addressNode = new ModelNode();
-        addressNode.get(ADDRESS).set(address);
-
-        ModelNode operation = discGroupAdapter.fromChangeset(changeset, addressNode);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.modificationFailed("Broadcast Group " + name),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.modified("Broadcast Group " + name));
-                }
-                loadDiscoveryGroups();
-            }
-        });
-    }
-
-    public void launchNewDiscoveryGroupWizard() {
-        loadExistingSocketBindings(new AsyncCallback<List<String>>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                Console.error(Console.MESSAGES.failed("Loading socket bindings"), throwable.getMessage());
-            }
-
-            @Override
-            public void onSuccess(List<String> names) {
-                window = new DefaultWindow(Console.MESSAGES.createTitle("Discovery Group"));
-                window.setWidth(480);
-                window.setHeight(450);
-                window.trapWidget(new NewDiscoveryGroupWizard(MsgClusteringPresenter.this, names).asWidget());
-                window.setGlassEnabled(true);
-                window.center();
-            }
-        });
-    }
-
-    public void onDeleteDiscoveryGroup(final String name) {
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("discovery-group", name);
-
-        ModelNode operation = new ModelNode();
-        operation.get(ADDRESS).set(address);
-        operation.get(OP).set(REMOVE);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.deletionFailed("Discovery Group " + name),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.deleted("Discovery Group " + name));
-                }
-                loadDiscoveryGroups();
-            }
-        });
-    }
-
-    public void onCreateDiscoveryGroup(final ActivemqDiscoveryGroup entity) {
-        closeDialogue();
-
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("discovery-group", entity.getName());
-
-        ModelNode operation = discGroupAdapter.fromEntity(entity);
-        operation.get(ADDRESS).set(address);
-        operation.get(OP).set(ADD);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.addingFailed("Discovery Group " + entity.getName()),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.added("Discovery Group " + entity.getName()));
-                }
-                loadDiscoveryGroups();
-            }
-        });
-    }
-
-    public void saveClusterConnection(final String name, Map<String, Object> changeset) {
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("cluster-connection", name);
-
-        ModelNode addressNode = new ModelNode();
-        addressNode.get(ADDRESS).set(address);
-
-        ModelNode operation = clusterConnectionsAdapter.fromChangeset(changeset, addressNode);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.modificationFailed("Cluster Connection " + name),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.modified("Cluster Connection " + name));
-                }
-                loadClusterConnections();
-            }
-        });
-    }
-
-    public void launchNewClusterConnectionWizard() {
-        window = new DefaultWindow(Console.MESSAGES.createTitle("Cluster Connection"));
-        window.setWidth(480);
-        window.setHeight(450);
-        window.trapWidget(
-                new NewClusterConnectionWizard(MsgClusteringPresenter.this, Collections.emptyList()).asWidget());
-        window.setGlassEnabled(true);
-        window.center();
-    }
-
-    public void onCreateClusterConnection(final ActivemqClusterConnection entity) {
-        closeDialogue();
-
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("cluster-connection", entity.getName());
-
-        ModelNode operation = clusterConnectionsAdapter.fromEntity(entity);
-        operation.get(ADDRESS).set(address);
-        operation.get(OP).set(ADD);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.addingFailed("Cluster Connection " + entity.getName()),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.added("Cluster Connection " + entity.getName()));
-                }
-                loadClusterConnections();
-            }
-        });
-    }
-
-    public void onDeleteClusterConnection(final String name) {
-        ModelNode address = Baseadress.get();
-        address.add("subsystem", "messaging-activemq");
-        address.add("server", getCurrentServer());
-        address.add("cluster-connection", name);
-
-        ModelNode operation = new ModelNode();
-        operation.get(ADDRESS).set(address);
-        operation.get(OP).set(REMOVE);
-
-        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
-            @Override
-            public void onSuccess(DMRResponse result) {
-                ModelNode response = result.get();
-
-                if (response.isFailure()) {
-                    Console.error(Console.MESSAGES.deletionFailed("Cluster Connection " + name),
-                            response.getFailureDescription());
-                } else {
-                    Console.info(Console.MESSAGES.deleted("Cluster Connection " + name));
-                }
-                loadClusterConnections();
-            }
-        });
     }
 
     @Override
@@ -671,7 +338,9 @@ public class MsgClusteringPresenter
                 if (response.isFailure()) {
                     Console.error("Failed to remove messaging provider", response.getFailureDescription());
                 } else {
-                    if (name.equals(currentServer)) { currentServer = null; }
+                    if (name.equals(currentServer)) {
+                        currentServer = null;
+                    }
                     Console.info("Removed messaging provider " + name);
                     loadProvider();
                 }
@@ -720,47 +389,9 @@ public class MsgClusteringPresenter
         return getProxy().getNameToken();
     }
 
-    public void onLaunchAddResourceDialog(AddressTemplate address) {
-        String type = address.getResourceType();
+    public void onAddSubResource(AddressTemplate address, ModelNode payload) {
 
-        window = new DefaultWindow(Console.MESSAGES.createTitle(type.toUpperCase()));
-        window.setWidth(480);
-        window.setHeight(360);
-
-        SecurityContext securityContext = Console.MODULES.getSecurityFramework().getSecurityContext(getProxy().getNameToken());
-        ResourceDescription resourceDescription = descriptionRegistry.lookup(address);
-
-        ModelNodeFormBuilder.FormAssets formAssets = new ModelNodeFormBuilder()
-                                    .setCreateMode(true)
-                                    .setConfigOnly()
-                                    .setRequiredOnly(false)
-                                    .includeOptionals(false)
-                                    .include("connectors", "broadcast-period", "jgroups-channel", "jgroups-stack", "socket-binding")
-                                    .setResourceDescription(resourceDescription)
-                                    .setSecurityContext(securityContext)
-                                    .build();
-                            formAssets.getForm().setEnabled(true);
-
-        window.setWidget(
-                new org.jboss.as.console.client.v3.widgets.AddResourceDialog(formAssets, resourceDescription,
-                        new org.jboss.as.console.client.v3.widgets.AddResourceDialog.Callback() {
-                            @Override
-                            public void onAdd(ModelNode payload) {
-                                window.hide();
-                                operationDelegate.onCreateResource(
-                                        address, payload.get("name").asString(), payload, defaultOpCallbacks);
-                            }
-
-                            @Override
-                            public void onCancel() {
-                                window.hide();
-                            }
-                        }
-                )
-        );
-
-        window.setGlassEnabled(true);
-        window.center();
+        operationDelegate.onCreateResource(address, payload.get(NAME).asString(), payload, defaultOpCallbacks);
     }
 
     public void onRemoveResource(final AddressTemplate address, final String name) {

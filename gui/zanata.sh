@@ -81,9 +81,12 @@ function pushPreviews {
     cp src/main/zanata/hal-html-previews/zanata.xml target/zanata/push/previews
     cp src/main/java/org/jboss/as/console/client/preview/*.html target/zanata/push/previews
     cp src/main/java/org/jboss/as/console/client/preview/content/*.html target/zanata/push/previews/content
-    cp src/main/java/org/jboss/as/console/client/preview/roles/*.html target/zanata/push/previews/content
+    cp src/main/java/org/jboss/as/console/client/preview/roles/*.html target/zanata/push/previews/roles
     cd target/zanata/push/previews
-    zanata-cli push --batch-mode --file-types HTML
+    rm -rf *_ja.html *_zh-Hans.html
+    rm -rf content/*_ja.html content/*_zh-Hans.html
+    rm -rf roles/*_ja.html roles/*_zh-Hans.html
+    zanata-cli push --batch-mode --file-types "HTML[html]"
     cd "${ROOT}"
 }
 

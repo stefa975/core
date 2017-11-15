@@ -6,15 +6,16 @@ import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
 import org.jboss.as.console.client.Console;
-import org.jboss.as.console.client.shared.help.FormHelpPanel;
-import org.jboss.as.console.client.shared.subsys.Baseadress;
+import org.jboss.as.console.client.v3.widgets.SuggestionResource;
 import org.jboss.ballroom.client.widgets.forms.ComboBoxItem;
 import org.jboss.ballroom.client.widgets.forms.Form;
+import org.jboss.ballroom.client.widgets.forms.FormItem;
 import org.jboss.ballroom.client.widgets.forms.FormValidation;
 import org.jboss.ballroom.client.widgets.forms.TextBoxItem;
 import org.jboss.ballroom.client.widgets.window.DialogueOptions;
 import org.jboss.ballroom.client.widgets.window.WindowContentBuilder;
-import org.jboss.dmr.client.ModelNode;
+
+import static org.jboss.as.console.client.meta.CoreCapabilitiesRegister.NETWORK_SOCKET_BINDING;
 
 /**
  * @author Heiko Braun
@@ -41,7 +42,9 @@ public class StackStep1 {
         transportType.setDefaultToFirstOption(true);
         transportType.setValueMap(new String[]{"UDP", "TCP", "TUNNEL"});
 
-        TextBoxItem socket = new TextBoxItem("transportSocket", "Socket Binding");
+        FormItem socket = new SuggestionResource("transportSocket", "Transport Socket Binding", true,
+            Console.MODULES.getCapabilities().lookup(NETWORK_SOCKET_BINDING))
+            .buildFormItem();
 
         form.setFields(nameField, transportType, socket);
 
@@ -49,18 +52,7 @@ public class StackStep1 {
 
         Widget formWidget = form.asWidget();
 
-        FormHelpPanel helpPanel = new FormHelpPanel(new FormHelpPanel.AddressCallback() {
-            @Override
-            public ModelNode getAddress() {
-                ModelNode address = Baseadress.get();
-                address.add("subsystem", "jgroups");
-                address.add("stack", "*");
-                return address;
-            }
-        }, form);
-
-        layout.add(helpPanel.asWidget());
-
+        layout.add(AddStackHelpPanel.helpStep1().asWidget());
         layout.add(formWidget);
 
         ClickHandler submitHandler = new ClickHandler() {

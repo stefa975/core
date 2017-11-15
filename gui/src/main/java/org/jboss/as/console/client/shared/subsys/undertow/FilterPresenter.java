@@ -21,6 +21,9 @@
  */
 package org.jboss.as.console.client.shared.subsys.undertow;
 
+import java.util.List;
+import java.util.Map;
+
 import com.allen_sauer.gwt.log.client.Log;
 import com.google.inject.Inject;
 import com.google.web.bindery.event.shared.EventBus;
@@ -50,9 +53,6 @@ import org.jboss.dmr.client.dispatch.impl.DMRAction;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.useware.kernel.gui.behaviour.FilteringStatementContext;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.jboss.dmr.client.ModelDescriptionConstants.*;
 
 /**
@@ -69,37 +69,55 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
 
     private DefaultWindow window;
 
-    @RequiredResources( resources = {
-            "{selected.profile}/subsystem=undertow/configuration=filter" ,
-            "{selected.profile}/subsystem=undertow/configuration=filter/custom-filter=*" ,
-            "{selected.profile}/subsystem=undertow/configuration=filter/error-page=*" ,
-            "{selected.profile}/subsystem=undertow/configuration=filter/expression-filter=*" ,
-            "{selected.profile}/subsystem=undertow/configuration=filter/gzip=*" ,
-            "{selected.profile}/subsystem=undertow/configuration=filter/mod-cluster=*" ,
-            "{selected.profile}/subsystem=undertow/configuration=filter/request-limit=*" ,
+
+    @RequiredResources(resources = {
+            "{selected.profile}/subsystem=undertow/configuration=filter",
+            "{selected.profile}/subsystem=undertow/configuration=filter/custom-filter=*",
+            "{selected.profile}/subsystem=undertow/configuration=filter/error-page=*",
+            "{selected.profile}/subsystem=undertow/configuration=filter/expression-filter=*",
+            "{selected.profile}/subsystem=undertow/configuration=filter/gzip=*",
+            "{selected.profile}/subsystem=undertow/configuration=filter/mod-cluster=*",
+            "{selected.profile}/subsystem=undertow/configuration=filter/request-limit=*",
             "{selected.profile}/subsystem=undertow/configuration=filter/response-header=*",
-            "{selected.profile}/subsystem=undertow/configuration=filter/rewrite=*" },
+            "{selected.profile}/subsystem=undertow/configuration=filter/rewrite=*"},
             recursive = true)
     @ProxyCodeSplit
     @NameToken(NameTokens.UndertowFilters)
     public interface MyProxy extends Proxy<FilterPresenter>, Place {
     }
 
+
     public interface MyView extends View {
+
         void setFilters(List<ModelNode> filters);
+
         void setPresenter(FilterPresenter presenter);
     }
 
 
-    CrudOperationDelegate.Callback defaultOpCallbacks = new CrudOperationDelegate.Callback() {
+    CrudOperationDelegate.Callback defaultAddOpCallbacks = new CrudOperationDelegate.Callback() {
         @Override
         public void onSuccess(AddressTemplate address, String name) {
+            Console.info(Console.MESSAGES.added("Undertow filter"));
             loadFilters();
         }
 
         @Override
         public void onFailure(AddressTemplate addressTemplate, String name, Throwable t) {
+            Console.error(Console.MESSAGES.addingFailed("Undertow filter"), t.getMessage());
+        }
+    };
 
+    CrudOperationDelegate.Callback defaultSaveOpCallbacks = new CrudOperationDelegate.Callback() {
+        @Override
+        public void onSuccess(AddressTemplate address, String name) {
+            Console.info(Console.MESSAGES.saved("Undertow filter"));
+            loadFilters();
+        }
+
+        @Override
+        public void onFailure(AddressTemplate addressTemplate, String name, Throwable t) {
+            Console.error(Console.MESSAGES.saveFailed("Undertow filter"), t.getMessage());
         }
     };
 
@@ -129,7 +147,7 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
         this.securityFramework = securityFramework;
         this.descriptionRegistry = descriptionRegistry;
 
-        this.statementContext =  new FilteringStatementContext(
+        this.statementContext = new FilteringStatementContext(
                 statementContext,
                 new FilteringStatementContext.Filter() {
                     @Override
@@ -167,8 +185,6 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
         revealStrategy.revealInParent(this);
     }
 
-    static java.util.logging.Logger LOG = java.util.logging.Logger.getLogger("org.jboss");    
-
     public void loadFilters() {
 
         ModelNode operation = new ModelNode();
@@ -184,11 +200,9 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
             public void onSuccess(DMRResponse result) {
                 ModelNode response = result.get();
 
-                if(response.isFailure()) {
+                if (response.isFailure()) {
                     Log.error("Failed to load servlet container details", response.getFailureDescription());
-                }
-                else
-                {
+                } else {
                     ModelNode data = response.get(RESULT);
                     List<ModelNode> resList = data.asList();
                     getView().setFilters(resList);
@@ -202,8 +216,6 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
 
     public void onLaunchAddResourceDialog(final AddressTemplate address, String title) {
 
-        String type = address.getResourceType();
-
         window = new DefaultWindow(Console.MESSAGES.createTitle(title));
         window.setWidth(480);
         window.setHeight(360);
@@ -216,7 +228,7 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
                     public void onAdd(ModelNode payload) {
                         window.hide();
                         operationDelegate.onCreateResource(
-                                address, payload.get("name").asString(), payload, defaultOpCallbacks);
+                                address, payload.get("name").asString(), payload, defaultAddOpCallbacks);
                     }
 
                     @Override
@@ -229,16 +241,16 @@ public class FilterPresenter extends Presenter<FilterPresenter.MyView, FilterPre
         window.setGlassEnabled(true);
         window.center();
     }
-    
+
     public void onRemoveResource(final AddressTemplate address, final String name) {
-        operationDelegate.onRemoveResource(address, name, defaultOpCallbacks);
+        operationDelegate.onRemoveResource(address, name, defaultAddOpCallbacks);
     }
 
     /**
      * Save an existent filter.
      */
     public void onSaveFilter(AddressTemplate address, String name, Map changeset) {
-        operationDelegate.onSaveResource(address, name, changeset, defaultOpCallbacks);
+        operationDelegate.onSaveResource(address, name, changeset, defaultSaveOpCallbacks);
     }
 
     public PlaceManager getPlaceManager() {

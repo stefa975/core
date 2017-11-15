@@ -21,6 +21,14 @@
  */
 package org.jboss.as.console.client.shared.runtime.logging.store;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.google.gwt.core.client.Scheduler;
 import com.google.gwt.http.client.Request;
 import com.google.gwt.http.client.RequestBuilder;
@@ -34,24 +42,18 @@ import org.jboss.as.console.client.core.ApplicationProperties;
 import org.jboss.as.console.client.core.BootstrapContext;
 import org.jboss.as.console.client.shared.runtime.logging.viewer.Direction;
 import org.jboss.as.console.client.shared.runtime.logging.viewer.Position;
+import org.jboss.as.console.client.tools.DownloadUtil;
 import org.jboss.as.console.client.v3.stores.domain.ServerStore;
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
 import org.jboss.dmr.client.dispatch.DispatchAsync;
 import org.jboss.dmr.client.dispatch.impl.DMRAction;
+import org.jboss.dmr.client.dispatch.impl.DMRHandler;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.jboss.gwt.circuit.ChangeSupport;
 import org.jboss.gwt.circuit.Dispatcher;
 import org.jboss.gwt.circuit.meta.Process;
 import org.jboss.gwt.circuit.meta.Store;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static com.google.gwt.http.client.URL.encode;
 import static java.lang.Math.max;
@@ -113,7 +115,7 @@ public class LogStore extends ChangeSupport {
     protected int pageSize;
 
     /**
-     * Flag to pause the {@link LogStore.RefreshLogFile} command
+     * Flag to pause the {@link RefreshLogFileCmd} command
      * when the related log view is no longer visible.
      */
     protected boolean pauseFollow;
@@ -179,6 +181,11 @@ public class LogStore extends ChangeSupport {
         });
     }
 
+    @Process(actionType = ReadLogFilesForRefresh.class)
+    public void readLogFilesForRefresh(final Dispatcher.Channel channel) {
+        readLogFiles(channel);
+    }
+
     @Process(actionType = OpenLogFile.class)
     public void openLogFile(final OpenLogFile action, final Dispatcher.Channel channel) {
         final LogFile logFile = states.get(action.getName());
@@ -222,38 +229,7 @@ public class LogStore extends ChangeSupport {
         final LogFile logFile = states.get(action.getName());
 
         if (logFile == null) {
-            RequestBuilder requestBuilder = new RequestBuilder(RequestBuilder.GET, encode(streamUrl(action.getName())));
-            requestBuilder.setHeader("Accept", "text/plain");
-            requestBuilder.setHeader("Content-Type", "text/plain");
-            requestBuilder.setIncludeCredentials(true);
-            try {
-                // store the request in order to cancel it later
-                pendingStreamingRequest = new PendingStreamingRequest(action.getName(),
-                        requestBuilder.sendRequest(null, new RequestCallback() {
-                            @Override
-                            public void onResponseReceived(Request request, Response response) {
-                                if (response.getStatusCode() >= 400) {
-                                    channel.nack(new IllegalStateException("Failed to stream log file " +
-                                            action.getName() + ": " + response.getStatusCode() + " - " +
-                                            response.getStatusText()));
-                                } else {
-                                    LogFile newLogFile = new LogFile(action.getName(), response.getText());
-                                    newLogFile.setFollow(false);
-                                    states.put(action.getName(), newLogFile);
-                                    activate(newLogFile);
-                                    channel.ack();
-                                }
-                            }
-
-                            @Override
-                            public void onError(Request request, Throwable exception) {
-                                channel.nack(exception);
-                            }
-                        }), channel);
-            } catch (RequestException e) {
-                channel.nack(e);
-            }
-
+            doStreamLogFile(action.getName(), channel);
         } else {
             // already streamed, just activate
             activate(logFile);
@@ -261,9 +237,56 @@ public class LogStore extends ChangeSupport {
         }
     }
 
+    @Process(actionType = RefreshLogFile.class)
+    public void refreshLogFile(final RefreshLogFile action, final Dispatcher.Channel channel) {
+        doStreamLogFile(action.getName(), channel);
+    }
+
+    private void doStreamLogFile(final String fileName, final Dispatcher.Channel channel) {
+        RequestBuilder requestBuilder = new RequestBuilder(RequestBuilder.GET, encode(streamUrl(fileName)));
+        requestBuilder.setHeader("Accept", "text/plain");
+        requestBuilder.setHeader("Content-Type", "text/plain");
+        String bearerToken = DMRHandler.getBearerToken();
+        if (bearerToken != null)
+            requestBuilder.setHeader("Authorization", "Bearer " + bearerToken);
+            
+        requestBuilder.setIncludeCredentials(true);
+        try {
+            // store the request in order to cancel it later
+            pendingStreamingRequest = new PendingStreamingRequest(fileName,
+                    requestBuilder.sendRequest(null, new RequestCallback() {
+                        @Override
+                        public void onResponseReceived(Request request, Response response) {
+                            if (response.getStatusCode() >= 400) {
+                                channel.nack(new IllegalStateException("Failed to stream log file " +
+                                        fileName + ": " + response.getStatusCode() + " - " +
+                                        response.getStatusText()));
+                            } else {
+                                LogFile newLogFile = new LogFile(fileName, response.getText());
+                                newLogFile.setFollow(false);
+                                states.put(fileName, newLogFile);
+                                activate(newLogFile);
+                                channel.ack();
+                            }
+                        }
+
+                        @Override
+                        public void onError(Request request, Throwable exception) {
+                            channel.nack(exception);
+                        }
+                    }), channel);
+        } catch (RequestException e) {
+            channel.nack(e);
+        }
+    }
+
     @Process(actionType = DownloadLogFile.class)
     public void downloadLogFile(final DownloadLogFile action, final Dispatcher.Channel channel) {
-        Window.open(streamUrl(action.getName()), "", "");
+        if (bootstrap.isSsoEnabled()) 
+            DownloadUtil.downloadHttpGet(streamUrl(action.getName()), action.getName(), DMRHandler.getBearerToken());
+        else 
+            Window.open(streamUrl(action.getName()), "", "");
+        
         channel.ack();
     }
 
@@ -501,7 +524,7 @@ public class LogStore extends ChangeSupport {
     }
 
     private void startFollowing(LogFile logFile) {
-        scheduler.scheduleFixedDelay(new RefreshLogFile(logFile.getName()), FOLLOW_INTERVAL);
+        scheduler.scheduleFixedDelay(new RefreshLogFileCmd(logFile.getName()), FOLLOW_INTERVAL);
     }
 
     private String streamUrl(final String name) {
@@ -634,11 +657,11 @@ public class LogStore extends ChangeSupport {
 
     // ------------------------------------------------------ polling
 
-    private class RefreshLogFile implements Scheduler.RepeatingCommand {
+    private class RefreshLogFileCmd implements Scheduler.RepeatingCommand {
 
         private final String name;
 
-        private RefreshLogFile(String name) {
+        private RefreshLogFileCmd(String name) {
             this.name = name;
         }
 

@@ -21,12 +21,17 @@
  */
 package org.jboss.as.console.client.shared.subsys.undertow;
 
+import java.util.List;
+import java.util.Map;
+
+import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.safehtml.shared.SafeHtmlUtils;
 import com.google.gwt.user.cellview.client.TextColumn;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.view.client.ListDataProvider;
 import com.google.gwt.view.client.ProvidesKey;
+import com.google.gwt.view.client.SelectionChangeEvent;
 import com.google.gwt.view.client.SingleSelectionModel;
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.layout.MultipleToOneLayout;
@@ -42,9 +47,6 @@ import org.jboss.ballroom.client.widgets.window.Feedback;
 import org.jboss.dmr.client.ModelDescriptionConstants;
 import org.jboss.dmr.client.Property;
 
-import java.util.List;
-import java.util.Map;
-
 /**
  * @author Claudio Miranda <claudio@redhat.com>
  * @since 04/06/2016
@@ -52,6 +54,7 @@ import java.util.Map;
 public class FilterEditor {
 
     private FilterPresenter presenter;
+    private final boolean showDeprecated;
     private DefaultCellTable table;
     private ListDataProvider<Property> dataProvider;
     private final SingleSelectionModel<Property> selectionModel;
@@ -59,17 +62,17 @@ public class FilterEditor {
     private ResourceDescription definition;
     private final AddressTemplate addressTemplate;
     private final String title;
+    private ModelNodeFormBuilder.FormAssets formAssets;
 
-    static java.util.logging.Logger LOG = java.util.logging.Logger.getLogger("org.jboss");
-    
-    public FilterEditor(FilterPresenter presenter, AddressTemplate addressTemplate, String title) {
+    public FilterEditor(FilterPresenter presenter, AddressTemplate addressTemplate, String title, boolean showDeprecated) {
         this.presenter = presenter;
-        this.table = new DefaultCellTable(5);
-        this.dataProvider = new ListDataProvider<>();
-        this.dataProvider.addDataDisplay(table);
+        this.showDeprecated = showDeprecated;
         ProvidesKey<Property> providesKey = Property::getName;
         this.selectionModel = new SingleSelectionModel<>(providesKey);
-        this.table.setSelectionModel(new SingleSelectionModel<Property>());
+        this.table = new DefaultCellTable(5, providesKey);
+        this.table.setSelectionModel(selectionModel);
+        this.dataProvider = new ListDataProvider<>(providesKey);
+        this.dataProvider.addDataDisplay(table);
         securityContext = presenter.getSecurityFramework().getSecurityContext(presenter.getProxy().getNameToken());
         definition = presenter.getDescriptionRegistry().lookup(addressTemplate);
         this.addressTemplate = addressTemplate;
@@ -87,10 +90,12 @@ public class FilterEditor {
 
         table.addColumn(nameColumn, "Name");
 
-        final ModelNodeFormBuilder.FormAssets formAssets = new ModelNodeFormBuilder()
+        formAssets = new ModelNodeFormBuilder()
                 .setConfigOnly()
                 .setResourceDescription(definition)
-                .setSecurityContext(securityContext).build();
+                .setSecurityContext(securityContext)
+                .includeDeprecated(showDeprecated)
+                .build();
 
 
         VerticalPanel formPanel =  null;
@@ -100,7 +105,7 @@ public class FilterEditor {
             formAssets.getForm().setToolsCallback(new FormCallback() {
                 @Override
                 public void onSave(Map changeset) {
-                    presenter.onSaveFilter(addressTemplate, getCurrentSelection().getName(), changeset);
+                    presenter.onSaveFilter(addressTemplate, selectionModel.getSelectedObject().getName(), changeset);
                 }
 
                 @Override
@@ -108,35 +113,33 @@ public class FilterEditor {
                     formAssets.getForm().cancel();
                 }
             });
-            
+
             formPanel = new VerticalPanel();
             formPanel.setStyleName("fill-layout-width");
             formPanel.add(formAssets.getHelp().asWidget());
             formPanel.add(formAssets.getForm().asWidget());
-            
+
             selectionModel.addSelectionChangeHandler(event -> {
                 Property selectedItem = selectionModel.getSelectedObject();
-                if (selectedItem!=null) {
+                if (selectedItem != null) {
                     formAssets.getForm().edit(selectedItem.getValue());
                 } else {
                     formAssets.getForm().clearValues();
                 }
             });
-            
         }
-        
+
         MultipleToOneLayout layoutBuilder = new MultipleToOneLayout()
                 .setPlain(true)
                 .setHeadline(title)
                 .setDescription(SafeHtmlUtils.fromString(definition.get(ModelDescriptionConstants.DESCRIPTION).asString()))
                 .setMasterTools(tableToolsButtons())
                 .setMaster(Console.MESSAGES.available(title), table);
-        
-    
+
+
         if (hasAttributes)
             layoutBuilder.addDetail(Console.CONSTANTS.common_label_attributes(), formPanel);
 
-        table.setSelectionModel(selectionModel);
         return layoutBuilder.build();
     }
 
@@ -145,27 +148,32 @@ public class FilterEditor {
         tools.addToolButtonRight(new ToolButton(Console.CONSTANTS.common_label_add(), event -> {
             presenter.onLaunchAddResourceDialog(addressTemplate, title);
         }));
-        tools.addToolButtonRight(new ToolButton(Console.CONSTANTS.common_label_delete(), event -> Feedback.confirm(Console.MESSAGES.deleteTitle("Container"),
-            Console.MESSAGES.deleteConfirm(title + " '" + getCurrentSelection().getName() + "'"),
-            isConfirmed -> {
-                if (isConfirmed) {
-                    presenter.onRemoveResource(addressTemplate, getCurrentSelection().getName());
-                }
-            })));
+        ToolButton btnRemove = new ToolButton(Console.CONSTANTS.common_label_delete(),
+                (ClickEvent event) -> {
+                    Property selected = selectionModel.getSelectedObject();
+                    if (selected != null) {
+                        Feedback.confirm(Console.MESSAGES.deleteTitle("Container"),
+                                Console.MESSAGES.deleteConfirm(
+                                        title + " '" + selected.getName() + "'"),
+                                isConfirmed -> {
+                                    if (isConfirmed) {
+                                        presenter.onRemoveResource(addressTemplate, selected.getName());
+                                    }
+                                });
+                    }
+                });
+        tools.addToolButtonRight(btnRemove);
         return tools;
-    }
-
-    private Property getCurrentSelection() {
-        Property selection = ((SingleSelectionModel<Property>) table.getSelectionModel()).getSelectedObject();
-        return selection;
     }
 
     public void updateValuesFromModel(List<Property> filters) {
         dataProvider.setList(filters);
+        table.selectDefaultEntity();
         if (filters.isEmpty()) {
             selectionModel.clear();
-        } else {
-            table.selectDefaultEntity();
+            formAssets.getForm().clearValues();
         }
+        SelectionChangeEvent.fire(selectionModel);
+
     }
 }

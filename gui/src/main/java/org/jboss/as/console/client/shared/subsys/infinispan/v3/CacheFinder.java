@@ -7,6 +7,7 @@ import com.google.gwt.safehtml.shared.SafeHtml;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.LayoutPanel;
+import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.SplitLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.view.client.ProvidesKey;
@@ -46,7 +47,7 @@ public class CacheFinder extends SuspendableViewImpl implements CacheFinderPrese
         @Template("<div class=\"{0}\">{1}</div>")
         SafeHtml item(String cssClass, String title);
 
-        @Template("<div class=\"preview-content\"><h1>{0}</h1><p>The configuration of an infinispan cache container.</p></div>")
+        @Template("<div class=\"preview-content\"><h1>{0}</h1><p>The configuration of an Infinispan cache container.</p></div>")
         SafeHtml preview(String name);
     }
 
@@ -195,7 +196,7 @@ public class CacheFinder extends SuspendableViewImpl implements CacheFinderPrese
             @Override
             public void execute() {
                 previewCanvas.clear();
-                previewCanvas.add(new HTML(html));
+                previewCanvas.add(new ScrollPanel(new HTML(html)));
             }
         });
     }

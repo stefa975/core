@@ -21,6 +21,8 @@
  */
 package org.jboss.as.console.client.shared.subsys.undertow;
 
+import java.util.List;
+
 import com.google.gwt.dom.client.Style;
 import com.google.gwt.user.client.ui.LayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
@@ -30,8 +32,6 @@ import org.jboss.as.console.client.widgets.pages.PagedView;
 import org.jboss.ballroom.client.widgets.tabs.FakeTabPanel;
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
-
-import java.util.List;
 
 /**
  * @author Claudio Miranda <claudio@redhat.com>
@@ -47,8 +47,9 @@ public class FiltersView extends SuspendableViewImpl implements FilterPresenter.
     private static final String REQUEST_LIMIT = "request-limit";
     private static final String RESPONSE_HEADER = "response-header";
     private static final String REWRITE = "rewrite";
-    
-    private static final AddressTemplate BASE_ADDRESS = AddressTemplate.of("{selected.profile}/subsystem=undertow/configuration=filter");
+
+    private static final AddressTemplate BASE_ADDRESS = AddressTemplate
+            .of("{selected.profile}/subsystem=undertow/configuration=filter");
     private static final AddressTemplate CUSTOM_ADDRESS = BASE_ADDRESS.append(CUSTOM_FILTER + "=*");
     private static final AddressTemplate ERROR_PAGE_ADDRESS = BASE_ADDRESS.append(ERROR_PAGE + "=*");
     private static final AddressTemplate EXPRESSION_ADDRESS = BASE_ADDRESS.append(EXPRESSION_FILTER + "=*");
@@ -57,7 +58,7 @@ public class FiltersView extends SuspendableViewImpl implements FilterPresenter.
     private static final AddressTemplate REQUEST_LIMIT_ADDRESS = BASE_ADDRESS.append(REQUEST_LIMIT + "=*");
     private static final AddressTemplate RESPONSE_HEADER_ADDRESS = BASE_ADDRESS.append(RESPONSE_HEADER + "=*");
     private static final AddressTemplate REWRITE_ADDRESS = BASE_ADDRESS.append(REWRITE + "=*");
-    
+
     private FilterPresenter presenter;
 
     private PagedView leftPanel;
@@ -85,14 +86,14 @@ public class FiltersView extends SuspendableViewImpl implements FilterPresenter.
 
         leftPanel = new PagedView(true);
 
-        customFilterEditor = new FilterEditor(presenter, CUSTOM_ADDRESS, "Custom Filter");
-        errorPageList = new FilterEditor(presenter, ERROR_PAGE_ADDRESS, "Error Page");
-        expressionList = new FilterEditor(presenter, EXPRESSION_ADDRESS, "Expression");
-        gzipList = new FilterEditor(presenter, GZIP_ADDRESS, "Gzip");
-        modclusterList = new FilterEditor(presenter, MODCLUSTER_ADDRESS, "ModCluster");
-        requestLimitList = new FilterEditor(presenter, REQUEST_LIMIT_ADDRESS, "Request Limit");
-        responseHeaderList = new FilterEditor(presenter, RESPONSE_HEADER_ADDRESS, "Response Header");
-        rewriteList = new FilterEditor(presenter, REWRITE_ADDRESS, "Rewrite");
+        customFilterEditor = new FilterEditor(presenter, CUSTOM_ADDRESS, "Custom Filter", false);
+        errorPageList = new FilterEditor(presenter, ERROR_PAGE_ADDRESS, "Error Page", false);
+        expressionList = new FilterEditor(presenter, EXPRESSION_ADDRESS, "Expression", false);
+        gzipList = new FilterEditor(presenter, GZIP_ADDRESS, "Gzip", false);
+        modclusterList = new FilterEditor(presenter, MODCLUSTER_ADDRESS, "ModCluster", true);
+        requestLimitList = new FilterEditor(presenter, REQUEST_LIMIT_ADDRESS, "Request Limit", false);
+        responseHeaderList = new FilterEditor(presenter, RESPONSE_HEADER_ADDRESS, "Response Header", false);
+        rewriteList = new FilterEditor(presenter, REWRITE_ADDRESS, "Rewrite", false);
 
         leftPanel.addPage("Custom Filter", customFilterEditor.asWidget());
         leftPanel.addPage("Error Page", errorPageList.asWidget());
@@ -110,59 +111,56 @@ public class FiltersView extends SuspendableViewImpl implements FilterPresenter.
         layout.add(panelWidget);
         layout.setWidgetTopHeight(titleBar, 0, Style.Unit.PX, 40, Style.Unit.PX);
         layout.setWidgetTopHeight(panelWidget, 40, Style.Unit.PX, 100, Style.Unit.PCT);
-        
+
         return layout;
     }
 
-    static java.util.logging.Logger LOG = java.util.logging.Logger.getLogger("org.jboss");
-    
     @Override
     public void setFilters(List<ModelNode> filters) {
-        for (ModelNode prop: filters) {
+        for (ModelNode prop : filters) {
 
             if (prop.has(CUSTOM_FILTER)) {
-                
+
                 List<Property> customList = prop.get(CUSTOM_FILTER).asPropertyList();
                 customFilterEditor.updateValuesFromModel(customList);
-                
+
             } else if (prop.has(ERROR_PAGE)) {
-                
+
                 List<Property> errorPagesList = prop.get(ERROR_PAGE).asPropertyList();
                 errorPageList.updateValuesFromModel(errorPagesList);
-                
+
             } else if (prop.has(EXPRESSION_FILTER)) {
-                
+
                 List<Property> expressionResList = prop.get(EXPRESSION_FILTER).asPropertyList();
                 expressionList.updateValuesFromModel(expressionResList);
-                
+
             } else if (prop.has(GZIP)) {
-                
+
                 List<Property> result = prop.get(GZIP).asPropertyList();
                 gzipList.updateValuesFromModel(result);
-                
+
             } else if (prop.has(MODCLUSTER)) {
-                
+
                 List<Property> result = prop.get(MODCLUSTER).asPropertyList();
                 modclusterList.updateValuesFromModel(result);
-                
+
             } else if (prop.has(REQUEST_LIMIT)) {
-                
+
                 List<Property> result = prop.get(REQUEST_LIMIT).asPropertyList();
                 requestLimitList.updateValuesFromModel(result);
-                
+
             } else if (prop.has(RESPONSE_HEADER)) {
-                
+
                 List<Property> result = prop.get(RESPONSE_HEADER).asPropertyList();
                 responseHeaderList.updateValuesFromModel(result);
-                
+
             } else if (prop.has(REWRITE)) {
-                
+
                 List<Property> result = prop.get(REWRITE).asPropertyList();
                 rewriteList.updateValuesFromModel(result);
-                
+
             }
         }
     }
-
 
 }

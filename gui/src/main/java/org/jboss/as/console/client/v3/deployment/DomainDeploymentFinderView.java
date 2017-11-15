@@ -21,14 +21,19 @@
  */
 package org.jboss.as.console.client.v3.deployment;
 
+import java.util.Arrays;
+import java.util.List;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.gwt.core.client.Scheduler;
+import com.google.gwt.resources.client.ExternalTextResource;
 import com.google.gwt.safehtml.shared.SafeHtml;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.IsWidget;
 import com.google.gwt.user.client.ui.LayoutPanel;
+import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.SplitLayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.view.client.ProvidesKey;
@@ -55,12 +60,13 @@ import org.jboss.dmr.client.dispatch.impl.DMRAction;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.jboss.gwt.circuit.Dispatcher;
 
-import java.util.Arrays;
-
 import static org.jboss.as.console.client.widgets.nav.v3.FinderColumn.FinderId.DEPLOYMENT;
 import static org.jboss.as.console.client.widgets.nav.v3.MenuDelegate.Role.Navigation;
 import static org.jboss.as.console.client.widgets.nav.v3.MenuDelegate.Role.Operation;
-import static org.jboss.dmr.client.ModelDescriptionConstants.*;
+import static org.jboss.dmr.client.ModelDescriptionConstants.CHILD_TYPE;
+import static org.jboss.dmr.client.ModelDescriptionConstants.OUTCOME;
+import static org.jboss.dmr.client.ModelDescriptionConstants.REMOVE;
+import static org.jboss.dmr.client.ModelDescriptionConstants.RESULT;
 
 /**
  * @author Harald Pehl
@@ -71,6 +77,7 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
     private SplitLayoutPanel layout;
     private LayoutPanel contentCanvas;
     private ColumnManager columnManager;
+    private PreviewContentFactory contentFactory;
 
     private BrowseByColumn browseByColumn;
     private Widget browseByColumnWidget;
@@ -90,6 +97,7 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
     public DomainDeploymentFinderView(final PlaceManager placeManager, final DispatchAsync dispatcher,
             final Dispatcher circuit, final PreviewContentFactory contentFactory) {
 
+        this.contentFactory = contentFactory;
         contentCanvas = new LayoutPanel();
         layout = new SplitLayoutPanel(2);
         columnManager = new ColumnManager(layout, DEPLOYMENT);
@@ -266,7 +274,7 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
         contentColumn = new ContentColumn(Console.CONSTANTS.allContent(), columnManager,
                 new MenuDelegate<Content>(Console.CONSTANTS.common_label_add(), item -> presenter.launchAddContentWizard(), Operation)
                         .setOperationAddress("/deployment=*", "add"),
-                new MenuDelegate<Content>(Console.CONSTANTS.common_label_assign(), item -> presenter.launchAssignContentDialog(item), Operation)
+                new MenuDelegate<Content>(Console.CONSTANTS.common_label_assign(), item -> presenter.launchAssignContentDialog(item, false), Operation)
                         .setOperationAddress("/deployment=*", "add"),
                 new MenuDelegate<Content>(Console.CONSTANTS.unassign(), item -> presenter.launchUnassignContentDialog(item), Operation)
                         .setOperationAddress("/deployment=*", "remove"),
@@ -286,7 +294,34 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
                                     }
                                 });
                     }
-                }, Operation).setOperationAddress("/deployment=*", "remove"));
+                }, Operation).setOperationAddress("/deployment=*", "remove"),
+                new MenuDelegate<Content>(Console.CONSTANTS.common_label_explode(), item -> {
+                    // when archive=undefined, then it is an archive
+                    boolean archive = item.get("content").get(0).hasDefined("archive") ? item.get("content").get(0).get("archive").asBoolean() : true;
+                    boolean managed = item.get("managed").asBoolean();
+                    if (!archive) {
+                        Console.warning("Cannot explode an already exploded deployment");
+                    } else if (!managed) {
+                        Console.warning("Cannot explode an unmanaged deployment");
+                    } else {
+                        Feedback.confirm(Console.CONSTANTS.common_label_areYouSure(), Console.MESSAGES.explodeTitle(item.getName()),
+                                isConfirmed -> {
+                                    if (isConfirmed) {
+                                        presenter.explodeContent(item);
+                                    }
+                                });
+                    }
+                }, Operation).setOperationAddress("/deployment=*", "explode"),
+                new MenuDelegate<Content>(Console.CONSTANTS.common_label_browseContent(), item -> {
+                    // when archive=undefined, then it is an archive
+                    boolean archive = item.get("content").get(0).hasDefined("archive") ? item.get("content").get(0).get("archive").asBoolean() : true;
+                    boolean managed = item.get("managed").asBoolean();
+                    if (!managed) {
+                        Console.warning("Cannot read content from an unmanaged deployment");
+                    } else {
+                        presenter.browseContent(item.getName());
+                    }
+                }, Operation).setOperationAddress("/deployment=*", "browse-content"));
 
         contentColumn.setFilter((item, token) ->
                 item.getName().contains(token) || item.getRuntimeName().contains(token));
@@ -296,7 +331,7 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
         //noinspection Convert2MethodRef
         unassignedColumn = new ContentColumn(Console.CONSTANTS.unassigned(), columnManager,
                 null,
-                new MenuDelegate<Content>(Console.CONSTANTS.common_label_assign(), item -> presenter.launchAssignContentDialog(item), Operation)
+                new MenuDelegate<Content>(Console.CONSTANTS.common_label_assign(), item -> presenter.launchAssignContentDialog(item, true), Operation)
                         .setOperationAddress("/deployment=*", "add"),
                 new MenuDelegate<Content>(Console.CONSTANTS.common_label_delete(), item ->
                         Feedback.confirm(Console.CONSTANTS.common_label_areYouSure(), Console.MESSAGES.deleteTitle(item.getName()),
@@ -305,7 +340,34 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
                                         presenter.removeContent(item, true);
                                     }
                                 }), Operation)
-                        .setOperationAddress("/deployment=*", "remove"));
+                        .setOperationAddress("/deployment=*", "remove"),
+                new MenuDelegate<Content>(Console.CONSTANTS.common_label_explode(), item -> {
+                    // when archive=undefined, then it is an archive
+                    boolean archive = item.get("content").get(0).hasDefined("archive") ? item.get("content").get(0).get("archive").asBoolean() : true;
+                    boolean managed = item.get("managed").asBoolean();
+                    if (!archive) {
+                        Console.warning(Console.CONSTANTS.deploymentCannotExplodeExploded());
+                    } else if (!managed) {
+                        Console.warning(Console.CONSTANTS.deploymentCannotExplodeUnmanaged());
+                    } else {
+                        Feedback.confirm(Console.CONSTANTS.common_label_areYouSure(), Console.MESSAGES.explodeTitle(item.getName()),
+                                isConfirmed -> {
+                                    if (isConfirmed) {
+                                        presenter.explodeContent(item);
+                                    }
+                                });
+                    }
+                }, Operation).setOperationAddress("/deployment=*", ModelDescriptionConstants.EXPLODE),
+                new MenuDelegate<Content>(Console.CONSTANTS.common_label_browseContent(), item -> {
+                    // when archive=undefined, then it is an archive
+                    boolean archive = item.get("content").get(0).hasDefined("archive") ? item.get("content").get(0).get("archive").asBoolean() : true;
+                    boolean managed = item.get("managed").asBoolean();
+                    if (!managed) {
+                        Console.warning(Console.CONSTANTS.deploymentCannotReadUnmanaged());
+                    } else {
+                        presenter.browseContent(item.getName());
+                    }
+                }, Operation).setOperationAddress("/deployment=*", ModelDescriptionConstants.BROWSE_CONTENT));
 
         unassignedColumn.setFilter((item, token) ->
                 item.getName().contains(token) || item.getRuntimeName().contains(token));
@@ -389,7 +451,16 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
     public void setPreview(final SafeHtml html) {
         Scheduler.get().scheduleDeferred(() -> {
             contentCanvas.clear();
-            contentCanvas.add(new HTML(html));
+            contentCanvas.add(new ScrollPanel(new HTML(html)));
+        });
+    }
+
+    private void setPreview(final ExternalTextResource externalTextResource) {
+        contentFactory.createContent(externalTextResource, new SimpleCallback<SafeHtml>() {
+            @Override
+            public void onSuccess(SafeHtml safeHtml) {
+                setPreview(safeHtml);
+            }
         });
     }
 
@@ -434,6 +505,7 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
             }
         }
         contentColumn.updateFrom(Lists.newArrayList(content), newContent);
+        setPreview(PreviewContent.INSTANCE.content_repository());
     }
 
     @Override
@@ -449,6 +521,7 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
             }
         }
         unassignedColumn.updateFrom(Lists.newArrayList(unassigned), newContent);
+        setPreview(PreviewContent.INSTANCE.unassigned_content());
     }
 
     @Override
@@ -468,6 +541,8 @@ public class DomainDeploymentFinderView extends SuspendableViewImpl implements D
                 }
             }
         }
-        assignmentColumn.updateFrom(Lists.newArrayList(assignments), newAssignment);
+        List<Assignment> assignmentList = Lists.newArrayList(assignments);
+        assignmentColumn.updateFrom(assignmentList, newAssignment);
+        setPreview(Templates.serverGroupPreview(serverGroupColumn.getSelectedItem(), assignmentList.size()));
     }
 }

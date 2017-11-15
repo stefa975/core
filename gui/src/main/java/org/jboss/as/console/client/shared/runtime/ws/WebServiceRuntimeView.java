@@ -1,5 +1,8 @@
 package org.jboss.as.console.client.shared.runtime.ws;
 
+import java.util.Comparator;
+import java.util.List;
+
 import com.google.gwt.dom.client.Style;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
@@ -24,15 +27,13 @@ import org.jboss.as.console.client.shared.runtime.charts.BulletGraphView;
 import org.jboss.as.console.client.shared.runtime.charts.Column;
 import org.jboss.as.console.client.shared.runtime.charts.NumberColumn;
 import org.jboss.as.console.client.shared.subsys.ws.model.WebServiceEndpoint;
+import org.jboss.as.console.client.widgets.ContentDescription;
 import org.jboss.as.console.client.widgets.tables.ColumnSortHandler;
 import org.jboss.ballroom.client.widgets.forms.Form;
 import org.jboss.ballroom.client.widgets.forms.TextItem;
 import org.jboss.ballroom.client.widgets.tables.DefaultCellTable;
 import org.jboss.ballroom.client.widgets.tables.DefaultPager;
 import org.jboss.dmr.client.ModelNode;
-
-import java.util.Comparator;
-import java.util.List;
 
 /**
  * @author Heiko Braun
@@ -45,6 +46,9 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
     private Sampler sampler;
     private Column[] columns;
     private WebServiceRuntimePresenter presenter;
+    private ContentDescription description;
+    private ContentDescription statsText = new ContentDescription("Statistics status.");
+    private SingleSelectionModel<WebServiceEndpoint> selectionModel;
 
     @Override
     public void setPresenter(WebServiceRuntimePresenter presenter) {
@@ -115,7 +119,7 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
         table.addColumnSortHandler(sortHandler);
         table.getColumnSortList().push(nameCol); // initial sort is on name
 
-        final SingleSelectionModel<WebServiceEndpoint> selectionModel = new SingleSelectionModel(keyProvider);
+        selectionModel = new SingleSelectionModel(keyProvider);
         table.setSelectionModel(selectionModel);
 
         selectionModel.addSelectionChangeHandler(new SelectionChangeEvent.Handler() {
@@ -123,19 +127,8 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
             public void onSelectionChange(SelectionChangeEvent event) {
 
                 final WebServiceEndpoint selection = selectionModel.getSelectedObject();
-                if(selection!=null) {
-                    sampler.clearSamples();
-                    sampler.addSample(
-                            new Metric(
-                                    selection.getRequestCount(),
-                                    selection.getResponseCount(),
-                                    selection.getFaultCount()
-                            ));
-                }
-                else
-                {
-                    sampler.clearSamples();
-                }
+                sampler.clearSamples();
+                addSample(selection);
             }
         });
         DefaultPager pager = new DefaultPager();
@@ -173,10 +166,10 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
                 )
                 .setForm(basics);
 
-        columns = new Column[] {
+        columns = new Column[]{
                 new NumberColumn("request-count", "Number of request").setBaseline(true),
-                new NumberColumn("response-count","Responses"),
-                new NumberColumn("fault-count","Faults")
+                new NumberColumn("response-count", "Responses"),
+                new NumberColumn("fault-count", "Faults")
         };
 
 
@@ -195,18 +188,21 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
 
 
         sampler = new BulletGraphView("Web Service Requests", "total number", true)
-                        .setColumns(columns);
+                .setColumns(columns);
 
         VerticalPanel p = new VerticalPanel();
         p.setStyleName("fill-layout-width");
         p.add(refreshBtn);
+        p.add(statsText);
         p.add(sampler.asWidget());
+
+        description = new ContentDescription(Console.CONSTANTS.subsys_ws_endpoint_desc());
 
         OneToOneLayout layout = new OneToOneLayout()
                 .setTitle("Webservices")
                 .setHeadline("Web Service Endpoints")
                 .setMaster(Console.MESSAGES.available("Web Service Endpoints"), tableLayout)
-                .setDescription(Console.CONSTANTS.subsys_ws_endpoint_desc())
+                .setDescription(description)
                 .addDetail(Console.CONSTANTS.common_label_stats(), p)
                 .addDetail(Console.CONSTANTS.common_label_attributes(), basicsLayout.build());
 
@@ -214,8 +210,16 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
         return layout.build();
     }
 
+    public void setStatistcsEnabled(final boolean stats) {
+        if (stats) {
+            statsText.setText("Status: ON");
+        } else {
+            statsText.setText("Status: OFF");
+        }
+    }
+
     public void updateEndpoints(List<WebServiceEndpoint> endpoints) {
-        ((SingleSelectionModel)table.getSelectionModel()).clear();
+        ((SingleSelectionModel) table.getSelectionModel()).clear();
 
         dataProvider.setList(endpoints);
         sortHandler.setList(dataProvider.getList());
@@ -224,10 +228,28 @@ public class WebServiceRuntimeView extends SuspendableViewImpl implements WebSer
         ColumnSortEvent.fire(table, table.getColumnSortList());
 
         table.selectDefaultEntity();
+        WebServiceEndpoint selection = selectionModel.getSelectedObject();
+        addSample(selection);
 
        /* ((SingleSelectionModel)table.getSelectionModel()).clear();
         dataProvider.setList(endpoints);
         table.selectDefaultEntity();*/
 
+    }
+
+    @Override
+    public void setWiseUrl(final String url) {
+        String wiseText = "<br><br><span title=\"" + Console.CONSTANTS.subsys_ws_wise_title_description()
+                + "\">WISE Url</span>: <a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
+        description.setHTML(description.getText() + wiseText);
+    }
+
+    private void addSample(WebServiceEndpoint endpoint) {
+        if (endpoint != null) {
+            sampler.addSample(new Metric(
+                    endpoint.getRequestCount(),
+                    endpoint.getResponseCount(),
+                    endpoint.getFaultCount()));
+        }
     }
 }

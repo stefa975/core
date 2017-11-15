@@ -19,23 +19,38 @@
 
 package org.jboss.as.console.client.shared.subsys.jca;
 
+import java.util.List;
+import java.util.Map;
+
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Widget;
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.layout.OneToOneLayout;
+import org.jboss.as.console.client.rbac.SecurityFramework;
 import org.jboss.as.console.client.shared.properties.PropertyRecord;
+import org.jboss.as.console.client.shared.subsys.elytron.CredentialReferenceAlternativesFormValidation;
+import org.jboss.as.console.client.shared.subsys.elytron.CredentialReferenceFormValidation;
 import org.jboss.as.console.client.shared.subsys.jca.model.DataSource;
 import org.jboss.as.console.client.shared.subsys.jca.model.PoolConfig;
-import org.jboss.as.console.client.widgets.forms.FormEditor;
+import org.jboss.as.console.client.v3.dmr.ResourceDescription;
+import org.jboss.as.console.client.v3.widgets.SuggestionResource;
 import org.jboss.as.console.client.widgets.forms.FormToolStrip;
+import org.jboss.as.console.mbui.widgets.ComplexAttributeForm;
+import org.jboss.as.console.mbui.widgets.ModelNodeFormBuilder;
+import org.jboss.ballroom.client.rbac.SecurityContext;
+import org.jboss.ballroom.client.widgets.forms.FormCallback;
+import org.jboss.ballroom.client.widgets.forms.PasswordBoxItem;
 import org.jboss.ballroom.client.widgets.tools.ToolButton;
 import org.jboss.ballroom.client.widgets.tools.ToolStrip;
 import org.jboss.ballroom.client.widgets.window.Feedback;
+import org.jboss.dmr.client.ModelNode;
+import org.jboss.dmr.client.Property;
 
-import java.util.List;
-import java.util.Map;
+import static org.jboss.as.console.client.meta.CoreCapabilitiesRegister.SECURITY_DOMAIN;
+import static org.jboss.as.console.client.shared.subsys.jca.DataSourcePresenter.DATASOURCE_TEMPLATE;
+import static org.jboss.dmr.client.ModelDescriptionConstants.CREDENTIAL_REFERENCE;
 
 /**
  * @author Heiko Braun
@@ -44,15 +59,15 @@ import java.util.Map;
 public class DataSourceEditor {
 
     private DataSourcePresenter presenter;
-
     private DataSourceDetails details;
     private PoolConfigurationView poolConfig;
-    private ConnectionProperties connectionProps ;
-    private FormEditor<DataSource> securityEditor;
+    private ConnectionProperties connectionProps;
     private DataSourceValidationEditor validationEditor;
     private DataSourceConnectionEditor connectionEditor;
     private DataSourceTimeoutEditor<DataSource> timeoutEditor;
     private DataSourceStatementEditor<DataSource> statementEditor;
+    private ModelNodeFormBuilder.FormAssets credentialReferenceFormAsset;
+    private ModelNodeFormBuilder.FormAssets securityFormAsset;
     private ToolButton disableBtn;
     private DataSource selectedEntity = null;
     private HTML title;
@@ -74,8 +89,11 @@ public class DataSourceEditor {
 
 
                 final boolean nextState = !selectedEntity.isEnabled();
-                String title = nextState ? Console.MESSAGES.enableConfirm("datasource") : Console.MESSAGES.disableConfirm("datasource");
-                String text = nextState ? Console.MESSAGES.enableConfirm("datasource "+selectedEntity.getName()) : Console.MESSAGES.disableConfirm("datasource "+selectedEntity.getName()) ;
+                String title = nextState ? Console.MESSAGES.enableConfirm("datasource") : Console.MESSAGES
+                        .disableConfirm("datasource");
+                String text = nextState ? Console.MESSAGES
+                        .enableConfirm("datasource " + selectedEntity.getName()) : Console.MESSAGES
+                        .disableConfirm("datasource " + selectedEntity.getName());
                 Feedback.confirm(title, text,
                         new Feedback.ConfirmationHandler() {
                             @Override
@@ -111,7 +129,64 @@ public class DataSourceEditor {
 
         connectionEditor = new DataSourceConnectionEditor(presenter, formCallback);
 
-        securityEditor = new DataSourceSecurityEditor(formCallback);
+        SecurityFramework securityFramework = Console.MODULES.getSecurityFramework();
+        SecurityContext securityContext = securityFramework.getSecurityContext(presenter.getProxy().getNameToken());
+        ResourceDescription resourceDescription = presenter.getResourceDescriptionRegistry()
+                .lookup(DATASOURCE_TEMPLATE);
+
+        securityFormAsset = new ModelNodeFormBuilder()
+                .setConfigOnly()
+                .setResourceDescription(resourceDescription)
+                .setSecurityContext(securityContext)
+                .createValidators(true)
+                .include("user-name", "password", "allow-multiple-users", "authentication-context", "elytron-enabled", "security-domain")
+                .addFactory("security-domain", attributeDescription -> new SuggestionResource("security-domain", "Security Domain", false,
+                            Console.MODULES.getCapabilities().lookup(SECURITY_DOMAIN)).buildFormItem())
+                .addFactory("password", attributeDescription -> new PasswordBoxItem("password", "Password", false))
+                .build();
+
+        securityFormAsset.getForm().setToolsCallback(new FormCallback() {
+            @Override
+            public void onSave(final Map changeset) {
+                presenter.onSaveDatasource(DATASOURCE_TEMPLATE, selectedEntity.getName(), changeset);
+            }
+
+            @Override
+            public void onCancel(final Object entity) {
+                securityFormAsset.getForm().cancel();
+            }
+        });
+
+        // credential-reference attribute
+        credentialReferenceFormAsset = new ComplexAttributeForm(CREDENTIAL_REFERENCE, securityContext,
+                resourceDescription).build();
+        credentialReferenceFormAsset.getForm().setToolsCallback(new FormCallback() {
+            @Override
+            @SuppressWarnings("unchecked")
+            public void onSave(final Map changeset) {
+                ModelNode updatedEntity = credentialReferenceFormAsset.getForm().getUpdatedEntity();
+                for (Property prop : updatedEntity.asPropertyList()) {
+                    if (!prop.getValue().isDefined()) {
+                        updatedEntity.remove(prop.getName());
+                    }
+                }
+                presenter.onSaveComplexAttribute(selectedEntity.getName(), CREDENTIAL_REFERENCE, updatedEntity);
+            }
+
+            @Override
+            public void onCancel(final Object entity) {
+                credentialReferenceFormAsset.getForm().cancel();
+            }
+        });
+        credentialReferenceFormAsset.getForm().addFormValidator(new CredentialReferenceFormValidation());
+
+        credentialReferenceFormAsset.getForm().setResetCallback(() -> presenter
+                .onSaveComplexAttribute(selectedEntity.getName(), CREDENTIAL_REFERENCE,
+                        new ModelNode().setEmptyList()));
+
+        // cross validate the forms, as there are "alternatives" metadata for the password.
+        securityFormAsset.getForm().addFormValidator(new CredentialReferenceAlternativesFormValidation("password", credentialReferenceFormAsset.getForm(), "Credential Reference", true));
+        credentialReferenceFormAsset.getForm().addFormValidator(new CredentialReferenceAlternativesFormValidation("password", securityFormAsset.getForm(), "Security", false));
 
         connectionProps = new ConnectionProperties(presenter);
 
@@ -128,13 +203,13 @@ public class DataSourceEditor {
 
             @Override
             public void onDoFlush(String editedName, String flushOp) {
-                if(selectedEntity.isEnabled())
+                if (selectedEntity.isEnabled()) {
                     presenter.onDoFlush(false, editedName, flushOp);
-                else
+                } else {
                     Console.error(Console.CONSTANTS.subsys_jca_error_datasource_notenabled());
+                }
             }
         });
-
 
 
         // ----
@@ -154,11 +229,12 @@ public class DataSourceEditor {
                 .setPlain(true)
                 .setHeadlineWidget(title)
                 .setDescription(Console.CONSTANTS.subsys_jca_dataSources_desc())
-                .setMaster("",topLevelTools.asWidget())
+                .setMaster("", topLevelTools.asWidget())
                 .addDetail(Console.CONSTANTS.common_label_attributes(), details.asWidget())
                 .addDetail("Connection", connectionEditor.asWidget())
                 .addDetail("Pool", poolConfig.asWidget())
-                .addDetail("Security", securityEditor.asWidget())
+                .addDetail("Security", securityFormAsset.asWidget())
+                .addDetail("Credential Reference", credentialReferenceFormAsset.asWidget())
                 .addDetail(Console.CONSTANTS.common_label_properties(), connectionProps.asWidget())
                 .addDetail("Validation", validationEditor.asWidget())
                 .addDetail("Timeouts", timeoutEditor.asWidget())
@@ -167,40 +243,40 @@ public class DataSourceEditor {
         return builder.build();
     }
 
-
     public void updateDataSource(DataSource ds) {
 
-        this.selectedEntity= ds;
-
+        this.selectedEntity = ds;
         details.updateFrom(ds);
 
         String suffix = ds.isEnabled() ? " (enabled)" : " (disabled)";
-        title.setHTML("JDBC datasource '"+ds.getName()+"'"+suffix);
+        title.setHTML("JDBC datasource '" + ds.getName() + "'" + suffix);
 
-
-        String nextState = ds.isEnabled() ? Console.CONSTANTS.common_label_disable() : Console.CONSTANTS.common_label_enable();
+        String nextState = ds.isEnabled() ? Console.CONSTANTS.common_label_disable() : Console.CONSTANTS
+                .common_label_enable();
         disableBtn.setText(nextState);
 
         // some cleanup has to be done manually
         connectionProps.clearProperties();
 
         connectionEditor.getForm().edit(ds);
-        securityEditor.getForm().edit(ds);
+
+        ModelNode datasourceBean = presenter.getDataSourceAdapter().fromEntity(ds);
+        securityFormAsset.getForm().edit(datasourceBean);
+        if (ds.getCredentialReference() != null) {
+            ModelNode bean = presenter.getCredentialReferenceAdapter().fromEntity(ds.getCredentialReference());
+            credentialReferenceFormAsset.getForm().edit(bean);
+        } else {
+            // if there is no credential-reference in the model, an empty one allows for edit operation.
+            credentialReferenceFormAsset.getForm().editTransient(new ModelNode());
+        }
 
         validationEditor.getForm().edit(ds);
         timeoutEditor.getForm().edit(ds);
         statementEditor.getForm().edit(ds);
 
-
         // used to be selection model callbacks
         presenter.loadPoolConfig(false, ds.getName());
         presenter.onLoadConnectionProperties(ds.getName());
-
-    }
-
-    public void setEnabled(boolean isEnabled) {
-
-
     }
 
     public void enableDetails(boolean b) {

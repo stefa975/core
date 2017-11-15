@@ -1,7 +1,13 @@
 package org.jboss.as.console.client.shared.runtime.activemq;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import com.allen_sauer.gwt.log.client.Log;
 import com.google.gwt.core.client.Scheduler;
+import com.google.gwt.regexp.shared.MatchResult;
+import com.google.gwt.regexp.shared.RegExp;
 import com.google.inject.Inject;
 import com.google.web.bindery.event.shared.EventBus;
 import com.gwtplatform.mvp.client.View;
@@ -16,16 +22,21 @@ import org.jboss.as.console.client.core.CircuitPresenter;
 import org.jboss.as.console.client.core.NameTokens;
 import org.jboss.as.console.client.domain.model.LoggingCallback;
 import org.jboss.as.console.client.domain.model.SimpleCallback;
+import org.jboss.as.console.client.rbac.SecurityFramework;
 import org.jboss.as.console.client.shared.BeanFactory;
 import org.jboss.as.console.client.shared.runtime.RuntimeBaseAddress;
 import org.jboss.as.console.client.shared.subsys.RevealStrategy;
+import org.jboss.as.console.client.shared.subsys.activemq.model.PreparedTransaction;
 import org.jboss.as.console.client.shared.subsys.messaging.AggregatedJMSModel;
 import org.jboss.as.console.client.shared.subsys.messaging.LoadJMSCmd;
 import org.jboss.as.console.client.shared.subsys.messaging.model.JMSEndpoint;
 import org.jboss.as.console.client.shared.subsys.messaging.model.Queue;
+import org.jboss.as.console.client.v3.ResourceDescriptionRegistry;
+import org.jboss.as.console.client.v3.dmr.AddressTemplate;
+import org.jboss.as.console.client.v3.dmr.Operation;
 import org.jboss.as.console.client.v3.stores.domain.ServerStore;
 import org.jboss.as.console.client.widgets.forms.ApplicationMetaData;
-import org.jboss.as.console.spi.AccessControl;
+import org.jboss.as.console.spi.RequiredResources;
 import org.jboss.as.console.spi.SearchIndex;
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
@@ -34,9 +45,7 @@ import org.jboss.dmr.client.dispatch.impl.DMRAction;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.jboss.gwt.circuit.Action;
 import org.jboss.gwt.circuit.Dispatcher;
-
-import java.util.Collections;
-import java.util.List;
+import org.useware.kernel.gui.behaviour.StatementContext;
 
 import static org.jboss.dmr.client.ModelDescriptionConstants.*;
 
@@ -46,9 +55,14 @@ import static org.jboss.dmr.client.ModelDescriptionConstants.*;
  */
 public class ActivemqMetricPresenter extends CircuitPresenter<ActivemqMetricPresenter.MyView, ActivemqMetricPresenter.MyProxy> {
 
+    public static final AddressTemplate RUNTIME_MESSAGING_SERVER = AddressTemplate.
+            of("/{implicit.host}/{selected.server}/subsystem=messaging-activemq/server=*");
+
     @ProxyCodeSplit
     @NameToken(NameTokens.ActivemqMetricPresenter)
-    @AccessControl(resources = {"/{implicit.host}/{selected.server}/subsystem=messaging-activemq/server=*"})
+    @RequiredResources(resources = {
+        "/{implicit.host}/{selected.server}/subsystem=messaging-activemq/server=*"
+    })
     @SearchIndex(keywords = {"jms", "queue", "topic", "size"})
     public interface MyProxy extends Proxy<ActivemqMetricPresenter>, Place {
     }
@@ -67,9 +81,15 @@ public class ActivemqMetricPresenter extends CircuitPresenter<ActivemqMetricPres
         void updateProvider(List<Property> provider);
 
         void setSelectedProvider(String name);
+        void setPooledConnectionFactoryModel(List<Property> model);
+
+        void setTransactions(List<PreparedTransaction> transactions);
     }
 
     private final PlaceManager placemanager;
+    private SecurityFramework securityFramework;
+    private StatementContext statementContext;
+    private ResourceDescriptionRegistry descriptionRegistry;
     private DispatchAsync dispatcher;
     private RevealStrategy revealStrategy;
     private JMSEndpoint selectedTopic;
@@ -83,13 +103,18 @@ public class ActivemqMetricPresenter extends CircuitPresenter<ActivemqMetricPres
             EventBus eventBus, MyView view, MyProxy proxy,
             DispatchAsync dispatcher, Dispatcher circuit,
             ApplicationMetaData metaData, RevealStrategy revealStrategy,
-            ServerStore serverStore, BeanFactory factory, PlaceManager placemanager) {
+            ServerStore serverStore, BeanFactory factory, PlaceManager placemanager,
+            SecurityFramework securityFramework, StatementContext statementContext,
+            ResourceDescriptionRegistry descriptionRegistry) {
         super(eventBus, view, proxy, circuit);
 
         this.dispatcher = dispatcher;
         this.revealStrategy = revealStrategy;
         this.serverStore = serverStore;
         this.placemanager = placemanager;
+        this.securityFramework = securityFramework;
+        this.statementContext = statementContext;
+        this.descriptionRegistry = descriptionRegistry;
         this.loadJMSCmd = new LoadJMSCmd(dispatcher, factory, metaData);
     }
 
@@ -139,6 +164,37 @@ public class ActivemqMetricPresenter extends CircuitPresenter<ActivemqMetricPres
         });
     }
 
+    public void refreshResources(String selectedProvider) {
+        refreshQueuesAndTopics(selectedProvider);
+        loadPooledConnectionFactory(selectedProvider);
+    }
+
+    public void loadPooledConnectionFactory(String selectedProvider) {
+
+        org.jboss.as.console.client.v3.dmr.ResourceAddress pooledAddress = RUNTIME_MESSAGING_SERVER
+                .resolve(statementContext, selectedProvider);
+        Operation op = new Operation.Builder(READ_CHILDREN_RESOURCES_OPERATION, pooledAddress)
+                .param(CHILD_TYPE, "pooled-connection-factory")
+                .param(RECURSIVE, true)
+                .param(INCLUDE_RUNTIME, true)
+                .build();
+
+        dispatcher.execute(new DMRAction(op), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.failed("Loading pooled connection factory " + selectedProvider),
+                            response.getFailureDescription());
+                } else {
+                    List<Property> model = response.get(RESULT).asPropertyList();
+                    getView().setPooledConnectionFactoryModel(model);
+                }
+            }
+        });
+    }
+
     public void refreshQueuesAndTopics(String selectedProvider) {
 
         getView().clearSamples();
@@ -162,6 +218,8 @@ public class ActivemqMetricPresenter extends CircuitPresenter<ActivemqMetricPres
                 getView().setQueues(result.getQueues());
             }
         });
+
+        loadTransactions();
     }
 
     private void loadQueueMetrics() {
@@ -320,5 +378,101 @@ public class ActivemqMetricPresenter extends CircuitPresenter<ActivemqMetricPres
 
     public PlaceManager getPlaceManager() {
         return placemanager;
+    }
+
+    public SecurityFramework getSecurityFramework() {
+        return securityFramework;
+    }
+
+    public ResourceDescriptionRegistry getDescriptionRegistry() {
+        return descriptionRegistry;
+    }
+
+    public StatementContext getStatementContext() {
+        return statementContext;
+    }
+
+    public DispatchAsync getDispatcher() {
+        return dispatcher;
+    }
+
+    public String getCurrentServer() {
+        return currentServer;
+    }
+
+    protected void onCommit(PreparedTransaction transaction) {
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(RuntimeBaseAddress.get());
+        operation.get(ADDRESS).add("subsystem", "messaging-activemq");
+        operation.get(ADDRESS).add("server", currentServer);
+        operation.get(OP).set("commit-prepared-transaction");
+        operation.get("transaction-as-base-64").set(transaction.getXid());
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+                if (response.isFailure()) {
+                    Console.error("Failed to commit transaction", response.getFailureDescription());
+                }
+                loadTransactions();
+            }
+        });
+    }
+
+    protected void onRollback(PreparedTransaction transaction) {
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(RuntimeBaseAddress.get());
+        operation.get(ADDRESS).add("subsystem", "messaging-activemq");
+        operation.get(ADDRESS).add("server", currentServer);
+        operation.get(OP).set("rollback-prepared-transaction");
+        operation.get("transaction-as-base-64").set(transaction.getXid());
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+                if (response.isFailure()) {
+                    Console.error("Failed to rollback transaction", response.getFailureDescription());
+                }
+                loadTransactions();
+            }
+        });
+    }
+
+    private List<PreparedTransaction> parseTransactions(List<ModelNode> transactions) {
+        RegExp transactionPattern = RegExp.compile("^(.*) base64: ([^ ]*)");
+        List<PreparedTransaction> preparedTransactions = new ArrayList<>();
+
+        for(ModelNode t : transactions) {
+            MatchResult match = transactionPattern.exec(t.asString());
+            if (match == null) {
+                Console.error("Error parsing prepared transactions");
+                break;
+            }
+            preparedTransactions.add(new PreparedTransaction(match.getGroup(2), match.getGroup(1)));
+        }
+        return preparedTransactions;
+    }
+
+    public void loadTransactions() {
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(RuntimeBaseAddress.get());
+        operation.get(ADDRESS).add("subsystem", "messaging-activemq");
+        operation.get(ADDRESS).add("server", currentServer);
+        operation.get(OP).set("list-prepared-transactions");
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+                ModelNode transactions = response.get(RESULT);
+                if (response.isFailure()) {
+                    Console.error("Unable to load transaction", response.getFailureDescription());
+                } else {
+                    getView().setTransactions(parseTransactions(transactions.asList()));
+                }
+            }
+        });
     }
 }

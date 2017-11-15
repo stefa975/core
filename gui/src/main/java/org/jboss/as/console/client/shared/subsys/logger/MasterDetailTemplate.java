@@ -1,16 +1,21 @@
 package org.jboss.as.console.client.shared.subsys.logger;
 
+import java.util.List;
+import java.util.Map;
+
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.user.cellview.client.TextColumn;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.view.client.ListDataProvider;
+import com.google.gwt.view.client.ProvidesKey;
 import com.google.gwt.view.client.SelectionChangeEvent;
 import com.google.gwt.view.client.SingleSelectionModel;
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.layout.MultipleToOneLayout;
 import org.jboss.as.console.client.v3.dmr.AddressTemplate;
 import org.jboss.as.console.client.v3.dmr.ResourceDescription;
+import org.jboss.as.console.client.v3.widgets.SuggestionResource;
 import org.jboss.as.console.mbui.widgets.ComplexAttributeForm;
 import org.jboss.as.console.mbui.widgets.ModelNodeFormBuilder;
 import org.jboss.ballroom.client.rbac.SecurityContext;
@@ -21,8 +26,7 @@ import org.jboss.ballroom.client.widgets.tools.ToolStrip;
 import org.jboss.ballroom.client.widgets.window.Feedback;
 import org.jboss.dmr.client.Property;
 
-import java.util.List;
-import java.util.Map;
+import static org.jboss.as.console.client.meta.CoreCapabilitiesRegister.LOGGING_FORMATTER;
 
 /**
  * @author Heiko Braun
@@ -42,8 +46,9 @@ public class MasterDetailTemplate {
         this.presenter = presenter;
         this.address = address;
         this.title = title;
-        this.table = new DefaultCellTable(5);
-        this.dataProvider = new ListDataProvider<Property>();
+        ProvidesKey<Property> providesKey = Property::getName;
+        this.table = new DefaultCellTable(5, providesKey);
+        this.dataProvider = new ListDataProvider<Property>(providesKey);
         this.dataProvider.addDataDisplay(table);
     }
 
@@ -90,6 +95,11 @@ public class MasterDetailTemplate {
 
         ModelNodeFormBuilder builder = new ModelNodeFormBuilder()
                 .setConfigOnly()
+                .addFactory("named-formatter", attributeDescription ->  {
+                    SuggestionResource suggestionResource = new SuggestionResource("named-formatter", "Named formatter", false,
+                            Console.MODULES.getCapabilities().lookup(LOGGING_FORMATTER));
+                    return suggestionResource.buildFormItem();
+                })
                 .setResourceDescription(definition)
                 .setSecurityContext(securityContext);
 
@@ -176,7 +186,6 @@ public class MasterDetailTemplate {
     }
 
     public void setData(List<Property> data) {
-        selectionModel.clear();
         dataProvider.setList(data);
         table.selectDefaultEntity();
     }

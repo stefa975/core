@@ -33,4 +33,12 @@ public interface MessagingAddress {
 
     String PROVIDER_ADDRESS = ROOT_ADDRESS + "/server=*";
     AddressTemplate PROVIDER_TEMPLATE = AddressTemplate.of(PROVIDER_ADDRESS);
+    
+    String JMSBRIDGE_ADDRESS = ROOT_ADDRESS + "/jms-bridge=*";
+    AddressTemplate JMSBRIDGE_TEMPLATE = AddressTemplate.of(JMSBRIDGE_ADDRESS);
+
+    String JMSBRIDGE_ENTITY_ADDRESS = ROOT_ADDRESS + "/jms-bridge=" + JMSBridgeSelectionAwareContext.SELECTED_ENTITY;
+
+    String PATH_ADDRESS = ROOT_ADDRESS + "/server={activemq.server}/path=bindings-directory";
+    AddressTemplate PATH_TEMPLATE = AddressTemplate.of(PATH_ADDRESS);
 }

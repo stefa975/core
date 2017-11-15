@@ -21,7 +21,9 @@
  */
 package org.jboss.as.console.client.shared.subsys.activemq;
 
-import com.google.gwt.core.client.GWT;
+import java.util.List;
+import java.util.Map;
+
 import com.google.gwt.safehtml.shared.SafeHtml;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.inject.Inject;
@@ -32,24 +34,24 @@ import com.gwtplatform.mvp.client.annotations.NameToken;
 import com.gwtplatform.mvp.client.annotations.ProxyCodeSplit;
 import com.gwtplatform.mvp.client.proxy.Place;
 import com.gwtplatform.mvp.client.proxy.Proxy;
+import com.gwtplatform.mvp.client.proxy.RevealContentEvent;
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.core.BootstrapContext;
-import org.jboss.as.console.client.core.HasPresenter;
 import org.jboss.as.console.client.core.NameTokens;
-import org.jboss.as.console.client.core.UIMessages;
 import org.jboss.as.console.client.domain.model.SimpleCallback;
 import org.jboss.as.console.client.domain.profiles.ProfileMgmtPresenter;
 import org.jboss.as.console.client.rbac.SecurityFramework;
 import org.jboss.as.console.client.standalone.ServerMgmtApplicationPresenter;
 import org.jboss.as.console.client.v3.ResourceDescriptionRegistry;
+import org.jboss.as.console.client.v3.dmr.AddressTemplate;
 import org.jboss.as.console.client.v3.dmr.Operation;
 import org.jboss.as.console.client.v3.dmr.ResourceAddress;
 import org.jboss.as.console.client.v3.dmr.ResourceDescription;
 import org.jboss.as.console.client.v3.widgets.AddResourceDialog;
+import org.jboss.as.console.client.v3.widgets.SuggestionResource;
 import org.jboss.as.console.client.widgets.nav.v3.PreviewEvent;
 import org.jboss.as.console.mbui.behaviour.ModelNodeAdapter;
 import org.jboss.as.console.spi.RequiredResources;
-import org.jboss.as.console.spi.SearchIndex;
 import org.jboss.ballroom.client.rbac.SecurityContext;
 import org.jboss.ballroom.client.widgets.window.DefaultWindow;
 import org.jboss.dmr.client.ModelNode;
@@ -59,47 +61,42 @@ import org.jboss.dmr.client.dispatch.impl.DMRAction;
 import org.jboss.dmr.client.dispatch.impl.DMRResponse;
 import org.useware.kernel.gui.behaviour.StatementContext;
 
-import java.util.List;
-import java.util.Map;
-
+import static org.jboss.as.console.client.meta.CoreCapabilitiesRegister.SECURITY_DOMAIN;
+import static org.jboss.as.console.client.shared.subsys.activemq.MessagingAddress.PROVIDER_ADDRESS;
+import static org.jboss.as.console.client.shared.subsys.activemq.MessagingAddress.PROVIDER_TEMPLATE;
+import static org.jboss.as.console.client.shared.subsys.activemq.MessagingAddress.PATH_ADDRESS;
 import static org.jboss.dmr.client.ModelDescriptionConstants.*;
 
 /**
- * @author Harald Pehl
+ * @author Claudio Miranda
  */
 public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFinder.MyProxy>
-        implements MessagingAddress, PreviewEvent.Handler {
+        implements PreviewEvent.Handler {
 
-    // ------------------------------------------------------ proxy & view
-    // @formatter:off
     @ProxyCodeSplit
     @NameToken(NameTokens.ActivemqFinder)
-    @RequiredResources(resources = PROVIDER_ADDRESS, recursive = false)
-    @SearchIndex(keywords = {"topic", "queue", "jms", "messaging", "publish", "subscribe"})
+    @RequiredResources(resources = {MessagingAddress.ROOT_ADDRESS, PROVIDER_ADDRESS, PATH_ADDRESS}, recursive = false)
     public interface MyProxy extends Proxy<ActivemqFinder>, Place {}
 
-    public interface MyView extends View, HasPresenter<ActivemqFinder> {
+    public interface MyView extends View {
+        void setPresenter(ActivemqFinder presenter);
+        void setPreview(SafeHtml html);
         void updateFrom(List<Property> list);
-        void setPreview(final SafeHtml html);
     }
-    // @formatter:on
-
 
     private final DispatchAsync dispatcher;
     private final ResourceDescriptionRegistry descriptionRegistry;
     private final SecurityFramework securityFramework;
     private final StatementContext statementContext;
+    private final BootstrapContext bootstrapContext;
 
     private DefaultWindow providerDialog;
     private ProviderView providerView;
 
-
-    // ------------------------------------------------------ presenter lifecycle
-
     @Inject
     public ActivemqFinder(EventBus eventBus,
-            MyView view,
-            MyProxy proxy,
+            ActivemqFinder.MyView view,
+            ActivemqFinder.MyProxy proxy,
             DispatchAsync dispatcher,
             ResourceDescriptionRegistry descriptionRegistry,
             SecurityFramework securityFramework,
@@ -115,25 +112,28 @@ public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFin
         this.securityFramework = securityFramework;
         this.statementContext = statementContext;
         this.providerView = new ProviderView(this);
+        this.bootstrapContext = bootstrapContext;
+    }
+
+    @Override
+    protected void onBind() {
+        super.onBind();
+        getEventBus().addHandler(PreviewEvent.TYPE, this);
+        getView().setPresenter(this);
+    }
+
+    @Override
+    protected void revealInParent() {
+        if(Console.getBootstrapContext().isStandalone())
+            RevealContentEvent.fire(this, ServerMgmtApplicationPresenter.TYPE_MainContent, this);
+        else
+            RevealContentEvent.fire(this, ProfileMgmtPresenter.TYPE_MainContent, this);
     }
 
     @Override
     public void onPreview(PreviewEvent event) {
         if(isVisible())
             getView().setPreview(event.getHtml());
-    }
-
-    @Override
-    protected void onBind() {
-        super.onBind();
-        getView().setPresenter(this);
-        getEventBus().addHandler(PreviewEvent.TYPE, this);
-    }
-
-    @Override
-    protected void onReset() {
-        super.onReset();
-        loadProvider();
     }
 
     public SecurityFramework getSecurityFramework() {
@@ -184,6 +184,11 @@ public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFin
                         dialog.hide();
                     }
                 })
+                .addFactory("security-domain", attributeDescription ->  {
+                    SuggestionResource suggestionResource = new SuggestionResource("security-domain", "Security domain", true,
+                            Console.MODULES.getCapabilities().lookup(SECURITY_DOMAIN));
+                    return suggestionResource.buildFormItem();
+                })
                 .include("security-enabled", "security-domain", "cluster-user", "cluster-password");
 
         dialog.setWidth(640);
@@ -193,7 +198,7 @@ public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFin
         dialog.center();
     }
 
-    private void loadProvider() {
+    void loadProvider() {
         loadProvider(null);
     }
 
@@ -222,7 +227,11 @@ public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFin
     }
 
     public void onSaveProvider(Property provider, Map<String, Object> changeset) {
-        ResourceAddress fqAddress = PROVIDER_TEMPLATE.resolve(statementContext, provider.getName());
+        onSaveProvider(provider, changeset, PROVIDER_TEMPLATE);
+    }
+
+    public void onSaveProvider(Property provider, Map<String, Object> changeset, AddressTemplate address) {
+        ResourceAddress fqAddress = address.resolve(statementContext, provider.getName());
         ModelNodeAdapter adapter = new ModelNodeAdapter();
         ModelNode operation = adapter.fromChangeset(changeset, fqAddress);
 
@@ -243,7 +252,7 @@ public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFin
                     Console.info(Console.MESSAGES
                             .successfullyModifiedMessagingProvider(provider.getName()));
                 }
-                loadProvider(provider.getName());
+                reloadProviderDialog(provider.getName());
             }
         });
     }
@@ -274,14 +283,68 @@ public class ActivemqFinder extends Presenter<ActivemqFinder.MyView, ActivemqFin
         });
     }
 
+    public void saveAttribute(final String complexAttributeName, final String resourceName, final Map changeset) {
+
+        ResourceAddress address = PROVIDER_TEMPLATE.resolve(statementContext, resourceName);
+        final org.jboss.as.console.client.v3.behaviour.ModelNodeAdapter adapter = new org.jboss.as.console.client.v3.behaviour.ModelNodeAdapter();
+        ModelNode operation = adapter.fromComplexAttributeChangeSet(address, complexAttributeName, changeset);
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse dmrResponse) {
+                ModelNode response = dmrResponse.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.failedToModifyMessagingProvider(resourceName),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES
+                            .successfullyModifiedMessagingProvider(resourceName));
+                    reloadProviderDialog(resourceName);
+                }
+            }
+        });
+
+    }
+
+    public void undefineAttribute(final String complexAttributeName, final String resourceName) {
+        ResourceAddress address = PROVIDER_TEMPLATE.resolve(statementContext, resourceName);
+
+        Operation operation = new Operation.Builder(UNDEFINE_ATTRIBUTE_OPERATION, address)
+                .param(NAME, complexAttributeName)
+                .build();
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse dmrResponse) {
+                ModelNode response = dmrResponse.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.failedToModifyMessagingProvider(resourceName), response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.successfullyModifiedMessagingProvider(resourceName));
+                    reloadProviderDialog(resourceName);
+                }
+            }
+        });
+
+    }
+
     public void onLaunchProviderSettings(Property provider) {
         providerDialog = new DefaultWindow(Console.MESSAGES.providerSettings());
-        providerDialog.setWidth(640);
+        providerDialog.setWidth(840);
         providerDialog.setHeight(480);
         providerDialog.trapWidget(providerView.asWidget());
         providerDialog.setGlassEnabled(true);
         providerDialog.center();
 
         providerView.updateFrom(provider);
+    }
+
+    private void reloadProviderDialog(String name) {
+        loadProvider(name);
+        if (!bootstrapContext.isStandalone()) {
+            providerDialog.hide();
+        }
     }
 }

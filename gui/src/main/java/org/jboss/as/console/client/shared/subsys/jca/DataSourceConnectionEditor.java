@@ -1,5 +1,6 @@
 package org.jboss.as.console.client.shared.subsys.jca;
 
+import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.layout.FormLayout;
@@ -50,7 +51,7 @@ public class DataSourceConnectionEditor {
 
         TextAreaItem urlItem = new TextAreaItem("connectionUrl", "Connection URL");
         CheckBoxItem jtaItem = new CheckBoxItem("jta", "Use JTA?");
-        CheckBoxItem ccmItem = new CheckBoxItem("ccm", "Use CCM?");
+        CheckBoxItem ccmItem = new CheckBoxItem("use-ccm", "Use CCM?");
 
         ComboBoxItem tx = new ComboBoxItem("transactionIsolation", "Transaction Isolation");
         tx.setValueMap(new String[]{
@@ -83,18 +84,15 @@ public class DataSourceConnectionEditor {
 
         formTools.addToolButtonRight(verifyBtn);
 
-        FormLayout layout = new FormLayout()
-                .setHelp(new FormHelpPanel(new FormHelpPanel.AddressCallback() {
-                    @Override
-                    public ModelNode getAddress() {
-                        return helpAddress;
-                    }
-                }, form)
-                )
-                .setForm(form)
-                .setTools(formTools);
+        FormHelpPanel helpPanel = new FormHelpPanel(() -> helpAddress, form);
 
-        return layout.build();
+        VerticalPanel panel = new VerticalPanel();
+        panel.setStyleName("fill-layout");
+
+        panel.add(formTools.asWidget());
+        panel.add(helpPanel.asWidget());
+        panel.add(form.asWidget());
+        return panel;
     }
 
     public Form<DataSource> getForm() {

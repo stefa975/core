@@ -1,18 +1,19 @@
 package org.jboss.as.console.client.shared.subsys.activemq.connections;
 
+import java.util.List;
+
 import com.google.gwt.dom.client.Style;
 import com.google.gwt.user.client.ui.LayoutPanel;
 import com.google.gwt.user.client.ui.Widget;
 import org.jboss.as.console.client.core.SuspendableViewImpl;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqAcceptor;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqBridge;
+import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqConnectionFactory;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqConnector;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqConnectorService;
 import org.jboss.as.console.client.widgets.pages.PagedView;
 import org.jboss.ballroom.client.widgets.tabs.FakeTabPanel;
 import org.jboss.dmr.client.Property;
-
-import java.util.List;
 
 /**
  * @author Heiko Braun
@@ -22,8 +23,10 @@ public class MsgConnectionsView extends SuspendableViewImpl implements MsgConnec
 
     private MsgConnectionsPresenter presenter;
     private AcceptorOverview acceptorOverview;
+    private ConnectionFactoryList connectionFactories;
     private ConnectorOverview connectorOverview;
     private ConnectorServiceList connectorServiceList;
+    private PooledConnectionFactoryView pooledConnectionFactoryView;
     private BridgesList bridgesList;
 
     @Override
@@ -38,13 +41,17 @@ public class MsgConnectionsView extends SuspendableViewImpl implements MsgConnec
 
         acceptorOverview = new AcceptorOverview(presenter);
         connectorOverview = new ConnectorOverview(presenter);
+        connectionFactories = new ConnectionFactoryList(presenter);
         connectorServiceList = new ConnectorServiceList(presenter);
         bridgesList = new BridgesList(presenter);
+        pooledConnectionFactoryView = new PooledConnectionFactoryView(presenter);
 
-        panel.addPage("Acceptor", acceptorOverview.asWidget()) ;
-        panel.addPage("Connector", connectorOverview.asWidget()) ;
-        panel.addPage("Connector Services", connectorServiceList.asWidget()) ;
-        panel.addPage("Bridges", bridgesList.asWidget()) ;
+        panel.addPage("Acceptor", acceptorOverview.asWidget());
+        panel.addPage("Connector", connectorOverview.asWidget());
+        panel.addPage("Connector Services", connectorServiceList.asWidget());
+        panel.addPage("Connection Factories", connectionFactories.asWidget());
+        panel.addPage("Pooled Connection Factory", pooledConnectionFactoryView.asWidget());
+        panel.addPage("Bridges", bridgesList.asWidget());
 
         // default page
         panel.showPage(0);
@@ -107,7 +114,17 @@ public class MsgConnectionsView extends SuspendableViewImpl implements MsgConnec
     }
 
     @Override
+    public void setConnectionFactories(List<ActivemqConnectionFactory> factories) {
+        connectionFactories.setFactories(factories);
+    }
+    
+    @Override
     public void setBridges(List<ActivemqBridge> bridges) {
         bridgesList.setBridges(bridges);
+    }
+
+    @Override
+    public void setPooledConnectionFactories(final List<Property> models) {
+        pooledConnectionFactoryView.setModel(models);
     }
 }

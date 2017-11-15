@@ -21,6 +21,10 @@
  */
 package org.jboss.as.console.client.v3.deployment;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -36,7 +40,6 @@ import com.gwtplatform.mvp.client.proxy.PlaceManager;
 import com.gwtplatform.mvp.client.proxy.ProxyPlace;
 import com.gwtplatform.mvp.client.proxy.RevealContentHandler;
 import com.gwtplatform.mvp.shared.proxy.PlaceRequest;
-
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.core.BootstrapContext;
 import org.jboss.as.console.client.core.Footer;
@@ -75,19 +78,16 @@ import org.jboss.gwt.flow.client.Function;
 import org.jboss.gwt.flow.client.Outcome;
 import org.useware.kernel.gui.behaviour.StatementContext;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import static org.jboss.as.console.spi.OperationMode.Mode.DOMAIN;
 import static org.jboss.dmr.client.ModelDescriptionConstants.ADD;
+import static org.jboss.dmr.client.ModelDescriptionConstants.DEPLOYMENT;
+import static org.jboss.dmr.client.ModelDescriptionConstants.EXPLODE;
 import static org.jboss.dmr.client.ModelDescriptionConstants.REMOVE;
 
 /**
  * @author Harald Pehl
  */
+@SuppressWarnings("WeakerAccess")
 public class DomainDeploymentFinder
         extends DeploymentFinder<DomainDeploymentFinder.MyView, DomainDeploymentFinder.MyProxy> {
 
@@ -115,16 +115,18 @@ public class DomainDeploymentFinder
     // ------------------------------------------------------ inner classes
 
 
-    class ContentCallback implements AsyncCallback<DMRResponse> {
+    private class ContentCallback implements AsyncCallback<DMRResponse> {
 
         final Content content;
         private final String success;
         private final String error;
+        private final boolean unmanaged;
 
-        ContentCallback(final Content content, final String success, String error) {
+        ContentCallback(final Content content, final String success, String error, boolean unmanaged) {
             this.content = content;
             this.success = success;
             this.error = error;
+            this.unmanaged = unmanaged;
         }
 
         @Override
@@ -139,7 +141,11 @@ public class DomainDeploymentFinder
                 Console.error(error, result.getFailureDescription());
             } else {
                 Console.info(success);
-                loadContentRepository();
+                if (unmanaged) {
+                    loadUnassignedContent();
+                } else {
+                    loadContentRepository();
+                }
             }
         }
     }
@@ -201,7 +207,7 @@ public class DomainDeploymentFinder
         this.replaceWizard = new ReplaceDomainDeploymentWizard(bootstrapContext, beanFactory, dispatcher,
                 context -> {
                     Console.info(Console.MESSAGES.deploymentSuccessfullyReplaced(context.upload.getName()));
-                    loadAssignments(context.serverGroup);
+                    loadContentRepository();
                 });
 
         this.statementContext = statementContext;
@@ -281,7 +287,7 @@ public class DomainDeploymentFinder
         }
     }
 
-    public void launchAssignContentDialog(Content content) {
+    public void launchAssignContentDialog(Content content, boolean unmanaged) {
         Set<String> assignedServerGroupNames = Sets.newHashSet(
                 Lists.transform(content.getAssignments(), Assignment::getServerGroup));
         Set<String> serverGroupNames = Sets.newHashSet(
@@ -290,11 +296,11 @@ public class DomainDeploymentFinder
         if (serverGroupNames.isEmpty()) {
             Console.warning(Console.MESSAGES.contentAlreadyAssigned(content.getName()));
         } else {
-            assignContentDialog.open(content, Ordering.natural().immutableSortedCopy(serverGroupNames));
+            assignContentDialog.open(content, Ordering.natural().immutableSortedCopy(serverGroupNames), unmanaged);
         }
     }
 
-    public void assignContent(Content content, Set<String> serverGroups, boolean enable) {
+    public void assignContent(Content content, Set<String> serverGroups, boolean enable, boolean unmanaged) {
         List<Operation> operations = new ArrayList<>();
         for (String serverGroup : serverGroups) {
             ResourceAddress address = new ResourceAddress()
@@ -308,7 +314,7 @@ public class DomainDeploymentFinder
         }
         dispatcher.execute(new DMRAction(new Composite(operations)), new ContentCallback(content,
                 Console.MESSAGES.contentSuccessfullyAssignedToServerGroups(content.getName()),
-                Console.MESSAGES.contentFailedToAssignToServerGroups(content.getName())));
+                Console.MESSAGES.contentFailedToAssignToServerGroups(content.getName()), unmanaged));
     }
 
     public void launchUnassignContentDialog(Content content) {
@@ -332,7 +338,7 @@ public class DomainDeploymentFinder
         }
         dispatcher.execute(new DMRAction(new Composite(operations)), new ContentCallback(content,
                 Console.MESSAGES.contentSuccessfullyUnassignedFromServerGroups(content.getName()),
-                Console.MESSAGES.contentFailedToUnassignFromServerGroups(content.getName())));
+                Console.MESSAGES.contentFailedToUnassignFromServerGroups(content.getName()), false));
     }
 
     public void launchReplaceContentWizard(Content content) {
@@ -365,7 +371,34 @@ public class DomainDeploymentFinder
             }
         });
     }
+    
+    public void explodeContent(final Content content) {
+        Operation operation = new Operation.Builder(EXPLODE, new ResourceAddress().add("deployment", content.getName()))
+                .build();
 
+        dispatcher.execute(new DMRAction(operation), new AsyncCallback<DMRResponse>() {
+            @Override
+            public void onFailure(final Throwable caught) {
+                Console.error(Console.CONSTANTS.unableToExplodeDeployment(), caught.getMessage());
+            }
+
+            @Override
+            public void onSuccess(final DMRResponse response) {
+                ModelNode result = response.get();
+                if (result.isFailure()) {
+                    Console.error(Console.CONSTANTS.unableToExplodeDeployment(), result.getFailureDescription());
+                } else {
+                    Console.info(content.getName() + " successfully exploded.");
+                    loadContentRepository();
+                    loadUnassignedContent();
+                }
+            }
+        });
+    }
+
+    public void browseContent(String deploymentName) {
+        placeManager.revealRelativePlace(new PlaceRequest.Builder().nameToken(NameTokens.DeploymentBrowseContent).with(DEPLOYMENT, deploymentName).build());
+    }
 
     // ------------------------------------------------------ assignments methods
 

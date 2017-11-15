@@ -1,10 +1,16 @@
 package org.jboss.as.console.client.tools;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import com.google.gwt.cell.client.ActionCell;
 import com.google.gwt.cell.client.TextCell;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
+import com.google.gwt.http.client.URL;
 import com.google.gwt.safehtml.client.SafeHtmlTemplates;
 import com.google.gwt.safehtml.shared.SafeHtml;
 import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
@@ -17,8 +23,6 @@ import com.google.gwt.view.client.ListDataProvider;
 import com.google.gwt.view.client.SelectionChangeEvent;
 import com.google.gwt.view.client.SingleSelectionModel;
 import org.jboss.as.console.client.Console;
-import org.jboss.as.console.client.core.UIConstants;
-import org.jboss.as.console.client.core.UIMessages;
 import org.jboss.as.console.client.domain.model.SimpleCallback;
 import org.jboss.as.console.client.widgets.ContentDescription;
 import org.jboss.as.console.client.widgets.tables.ViewLinkCell;
@@ -38,11 +42,6 @@ import org.jboss.ballroom.client.widgets.window.Feedback;
 import org.jboss.ballroom.client.widgets.window.WindowContentBuilder;
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * @author Heiko Braun
@@ -140,8 +139,10 @@ public class ChildView {
             @Override
             public void onClick(ClickEvent event) {
                 ModelNode selection = selectionModel.getSelectedObject();
-                if (selection != null)
+                if (selection != null) {
                     presenter.onRemoveChildResource(currentAddress, selection);
+                    selectionModel.clear();
+                }
             }
         });
         tools.addToolButtonRight(remove);
@@ -151,7 +152,7 @@ public class ChildView {
         table.addColumn(new ModelNodeColumn(new ModelNodeColumn.ValueAdapter() {
             @Override
             public String getValue(ModelNode model) {
-                return model.asString();
+                return URL.decodePathSegment(model.asString());
             }
         }), "Child Resource" );
 
@@ -232,7 +233,7 @@ public class ChildView {
         String resourceAddress = AddressUtils.asKey(address, isSingleton);
 
         if(securityContext.getOperationPriviledge(resourceAddress, "add").isGranted()) {
-            _showAddDialog(address, securityContext, description);
+            _showAddDialog(address, isSingleton, securityContext, description);
         }
         else
         {
@@ -242,7 +243,7 @@ public class ChildView {
 
     }
 
-    private void _showAddDialog(final ModelNode address, SecurityContext securityContext, ModelNode description) {
+    private void _showAddDialog(final ModelNode address, boolean isSingleton, SecurityContext securityContext, ModelNode description) {
         List<Property> tuples = address.asPropertyList();
         String type = "";
         if(tuples.size()>0)
@@ -252,12 +253,15 @@ public class ChildView {
 
         ModelNodeFormBuilder builder = new ModelNodeFormBuilder()
                 .setCreateMode(true)
+                .setSingleton(isSingleton)
+                .includeDeprecated(true)
                 .setResourceDescription(description)
                 .setSecurityContext(securityContext);
 
         ModelNodeFormBuilder.FormAssets assets = builder.build();
 
         final ModelNodeForm form = assets.getForm();
+        form.addFormValidator(ModelBrowserValidators.getValidatorFor(AddressUtils.asKey(address, false)));
         form.setEnabled(true);
 
         if(form.hasWritableAttributes()) {

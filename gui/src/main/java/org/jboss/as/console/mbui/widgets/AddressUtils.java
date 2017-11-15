@@ -1,9 +1,9 @@
 package org.jboss.as.console.mbui.widgets;
 
+import java.util.List;
+
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
-
-import java.util.List;
 
 /**
  * @author Heiko Braun
@@ -86,11 +86,11 @@ public class AddressUtils {
 
             if(i==tuples.size()-1)
                 if(fq)
-                    sb.append(tuple.getValue().asString());
+                    sb.append(escapeValue(tuple.getValue().asString()));
                 else
                     sb.append("*");
             else
-                sb.append(tuple.getValue().asString());
+                sb.append(escapeValue(tuple.getValue().asString()));
 
             i++;
         }
@@ -111,18 +111,25 @@ public class AddressUtils {
 
             if(i==tuples.size()-1)
                 if(fq)
-                    sb.append(tuple.getValue().asString());
+                    sb.append(escapeValue(tuple.getValue().asString()));
                 else
                     sb.append("*");
             else
-                sb.append(tuple.getValue().asString());
+                sb.append(escapeValue(tuple.getValue().asString()));
 
             i++;
         }
 
-        if(tuples.isEmpty())
-            sb.append("ROOT"); // better then empty string
+        //if(tuples.isEmpty())
+        //    sb.append("ROOT"); // better then empty string
 
         return sb.toString();
     }
+
+    private static String escapeValue(String addressSegment) {
+        return addressSegment
+                .replace("/", "\\/")
+                .replace(":", "\\:");
+    }
+
 }

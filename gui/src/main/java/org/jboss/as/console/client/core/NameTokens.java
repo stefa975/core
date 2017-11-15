@@ -37,17 +37,26 @@ public class NameTokens {
     public static final String DataSourcePresenter = "datasources";
     public static final String DebugToolsPresenter = "debug-tools";
     public static final String EJB3Presenter = "ejb3";
+    public static final String ElytronPresenter = "elytron";
+    public static final String ElytronFinder = "elytron-finder";
+    public static final String ElytronMetrics = "elytron-metrics";
+    public static final String ElytronFactoryPresenter = "elytron-factory-presenter";
+    public static final String ElytronMapperPresenter = "elytron-mapper-presenter";
+    public static final String ElytronSecurityRealmPresenter = "elytron-security-realm-presenter";
+    public static final String ElytronSSLPresenter = "elytron-ssl-presenter";
     public static final String HostInterfacesPresenter = "host-interfaces";
     public static final String HostJVMPresenter = "host-jvms";
     public static final String HostPropertiesPresenter = "host-properties";
     public static final String Infinispan = "infinispan";
     public static final String InterfacePresenter = "interfaces";
+    public static final String JMSBridge = "jms-bridge";
     public static final String JMSPresenter = "jms";
     public static final String JndiPresenter = "naming";
     public static final String LogViewer = "logviewer";
     public static final String LogFiles = "logfiles";
     public static final String LogHandler = "log-handler";
     public static final String MessagingPresenter = "messaging";
+    public static final String MessagingProvider = "messaging-provider";
     public static final String ActivemqMessagingPresenter = "activemq-messaging";
     public static final String MetricsPresenter = "invocation-metrics";
     public static final String ModelBrowserPresenter = "model-browser";
@@ -135,6 +144,7 @@ public class NameTokens {
     public static final String DeploymentsPresenter  = "domain-deployments-old";
 
     public static final String HostMgmtPresenter = "hosts";
+    public static final String ConfigurationChangesPresenter = "configuration-changes";
 
     public final static String ServerPresenter = "server-config";
 
@@ -142,6 +152,7 @@ public class NameTokens {
     public static final String StandaloneDeploymentFinder = "standalone-deployments";
     public static final String DeploymentDetails = "deployments-details";
     public static final String DeploymentScanner = "deployment-scanner";
+    public static final String DeploymentBrowseContent = "deployment-browse-content";
 
 
     // ------------------------------------------------------
@@ -153,6 +164,7 @@ public class NameTokens {
     public static final String SecDomain = "security_domain";
     public static final String UndertowFinder = "undertow-subsystem";
     public static final String AccessControlFinder = "rbac";
+    public static final String SSOAccessControlFinder = "sso-rbac";
     public static final String DataSourceFinder = "ds-finder";
     public static final String XADataSourcePresenter = "xads";
     public static final String ResourceAdapterFinder = "ra-finder";

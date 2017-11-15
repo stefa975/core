@@ -35,7 +35,6 @@ import org.jboss.as.console.client.v3.widgets.wizard.WizardStep;
 import org.jboss.as.console.client.widgets.ContentDescription;
 import org.jboss.ballroom.client.widgets.forms.Form;
 import org.jboss.ballroom.client.widgets.forms.FormValidation;
-import org.jboss.ballroom.client.widgets.forms.NumberBoxItem;
 import org.jboss.ballroom.client.widgets.forms.TextBoxItem;
 import org.jboss.ballroom.client.widgets.tables.DefaultCellTable;
 import org.jboss.ballroom.client.widgets.tables.DefaultPager;
@@ -69,16 +68,10 @@ class DriverStep<T extends DataSource> extends WizardStep<Context<T>, State> {
         TextBoxItem moduleName = new TextBoxItem("driverModuleName", "Module Name", true);
         TextBoxItem driverClass = new TextBoxItem("driverClass", "Driver Class", false);
         TextBoxItem xaDataSource = new TextBoxItem("xaDataSourceClass", "XA DataSource Class", false);
-        NumberBoxItem major = new NumberBoxItem("majorVersion", "Major Version") {{
-            setRequired(false);
-        }};
-        NumberBoxItem minor = new NumberBoxItem("minorVersion", "Minor Version") {{
-            setRequired(false);
-        }};
         if (context.xa) {
-            form.setFields(driverName, moduleName, driverClass, xaDataSource, major, minor);
+            form.setFields(driverName, moduleName, driverClass, xaDataSource);
         } else {
-            form.setFields(driverName, moduleName, driverClass, major, minor);
+            form.setFields(driverName, moduleName, driverClass);
         }
 
         FlowPanel formPanel = new FlowPanel();
@@ -124,7 +117,7 @@ class DriverStep<T extends DataSource> extends WizardStep<Context<T>, State> {
         // body
         FlowPanel body = new FlowPanel();
         body.add(new ContentDescription(
-                "Select one of the installed JDBC driver. Don't see your driver? Please make sure it's deployed as a module and properly registered."));
+               "Select one of the installed JDBC drivers. If you do not see your driver, make sure that it is deployed as a module and properly registered."));
         body.add(tabs);
         tabs.selectTab(0);
 

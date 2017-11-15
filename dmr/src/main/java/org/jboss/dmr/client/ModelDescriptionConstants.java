@@ -30,21 +30,28 @@ public class ModelDescriptionConstants {
 
     public static final String ACCESS_TYPE = "access-type";
     public static final String ADD = "add";
+    public static final String ADD_ALIAS_OPERATION = "add-alias";
     public static final String ADD_OPERATION = "add-operation";
     public static final String ADDRESS = "address";
     public static final String ALLOW_RESOURCE_SERVICE_RESTART = "allow-resource-service-restart";
     public static final String ALLOWED = "allowed";
+    public static final String ALTERNATIVES = "alternatives";
     public static final String ANY = "any";
     public static final String ANY_ADDRESS = "any-address";
     public static final String ANY_IPV4_ADDRESS = "any-ipv4-address";
     public static final String ANY_IPV6_ADDRESS = "any-ipv6-address";
     public static final String ATTRIBUTES = "attributes";
+    public static final String ATTRIBUTES_ONLY = "attributes-only";
     public static final String BYTES = "bytes";
+    public static final String BROWSE_CONTENT = "browse-content";
     public static final String CANCELLED = "cancelled";
+    public static final String CAPABILITY_REFERENCE = "capability-reference";
+    public static final String CREDENTIAL_REFERENCE = "credential-reference";
     public static final String CHILD_TYPE = "child-type";
     public static final String CHILDREN = "children";
     public static final String COMPOSITE = "composite";
     public static final String CONCURRENT_GROUPS = "concurrent-groups";
+    public static final String CONFIGURATION_CHANGES = "configuration-changes";
     public static final String CPU_AFFINITY = "cpu-affinity";
     public static final String CRITERIA = "criteria";
     public static final String COMPENSATING_OPERATION = "compensating-operation";
@@ -56,6 +63,7 @@ public class ModelDescriptionConstants {
     public static final String DOMAIN_CONTROLLER = "domain-controller";
     public static final String DOMAIN_FAILURE_DESCRIPTION = "domain-failure-description";
     public static final String DOMAIN_RESULTS = "domain-results";
+    public static final String EXPLODE = "explode";
     public static final String EXTENSION = "extension";
     public static final String FAILED = "failed";
     public static final String FAILURE_DESCRIPTION = "failure-description";
@@ -79,13 +87,20 @@ public class ModelDescriptionConstants {
     public static final String INPUT_STREAM_INDEX = "input-stream-index";
     public static final String INTERFACE = "interface";
     public static final String IN_SERIES = "in-series";
+    public static final String JMS_BRIDGE = "jms-bridge";
     public static final String JOB = "job";
     public static final String JOB_XML_NAME = "job-xml-name";
     public static final String JVM = "jvm";
     public static final String JVM_TYPE = "type";
+    public static final String LIST_ADD_OPERATION = "list-add";
+    public static final String LIST_REMOVE_OPERATION = "list-remove";
+    public static final String LIST_CHANGES_OPERATION = "list-changes";
     public static final String LOCAL = "local";
     public static final String LOCALE = "locale";
     public static final String MANAGEMENT_INTERFACES = "management-interfaces";
+    public static final String MANAGEMENT_MAJOR_VERSION = "management-major-version";
+    public static final String MANAGEMENT_MICRO_VERSION = "management-micro-version";
+    public static final String MANAGEMENT_MINOR_VERSION = "management-minor-version";
     public static final String MASK = "mask";
     public static final String MAX = "max";
     public static final String MAX_FAILED_SERVERS = "max-failed-servers";
@@ -124,11 +139,14 @@ public class ModelDescriptionConstants {
     public static final String PROFILE = "profile";
     public static final String PROFILE_NAME = "profile-name";
     public static final String PROXIES = "proxies";
+    public static final String QUERY_OPERATION = "query";
+    public static final String READ_ALIASES_OPERATION = "read-aliases";
     public static final String READ_ATTRIBUTE_OPERATION = "read-attribute";
     public static final String READ_CHILDREN_NAMES_OPERATION = "read-children-names";
     public static final String READ_CHILDREN_TYPES_OPERATION = "read-children-types";
     public static final String READ_CHILDREN_RESOURCES_OPERATION = "read-children-resources";
     public static final String READ_CONFIG_AS_XML_OPERATION = "read-config-as-xml";
+    public static final String READ_CONTENT_OPERATION = "read-content";
     public static final String READ_OPERATION_DESCRIPTION_OPERATION = "read-operation-description";
     public static final String READ_OPERATION_NAMES_OPERATION = "read-operation-names";
     public static final String READ_RESOURCE_DESCRIPTION_OPERATION = "read-resource-description";
@@ -136,12 +154,14 @@ public class ModelDescriptionConstants {
     public static final String READ_RESOURCE_OPERATION = "read-resource";
     public static final String RELATIVE_TO = "relative-to";
     public static final String REMOVE = "remove";
+    public static final String REMOVE_ALIAS_OPERATION = "remove-alias";
     public static final String REMOTE = "remote";
     public static final String REMOVE_OPERATION = "remove-operation";
     public static final String REPLY_PROPERTIES = "reply-properties";
     public static final String REQUEST_PROPERTIES = "request-properties";
     public static final String RECURSIVE = "recursive";
     public static final String REQUIRED = "required";
+    public static final String REQUIRES = "requires";
     public static final String RESPONSE = "response";
     public static final String RESTART_JOB = "restart-job";
     public static final String RESULT = "result";
@@ -153,6 +173,7 @@ public class ModelDescriptionConstants {
     public static final String ROLLING_TO_SERVERS = "rolling-to-servers";
     public static final String ROLLOUT_PLAN = "rollout-plan";
     public static final String RUNTIME_NAME = "runtime-name";
+    public static final String RUNTIME_ONLY = "runtime-only";
     public static final String RUNNING_SERVER = "server";
     public static final String SCHEMA_LOCATION = "schema-location";
     public static final String SCHEMA_LOCATIONS = "schema-locations";
@@ -162,6 +183,8 @@ public class ModelDescriptionConstants {
     public static final String SERVER_GROUP = "server-group";
     public static final String SERVER_GROUPS = "server-groups";
     public static final String SERVER_OPERATIONS = "server-operations";
+    public static final String SERVICE = "service";
+    public static final String SET_SECRET_OPERATION = "set-secret";
     public static final String SHUTDOWN = "shutdown";
     public static final String SOCKET_BINDING = "socket-binding";
     public static final String SOCKET_BINDING_GROUP = "socket-binding-group";
@@ -186,5 +209,6 @@ public class ModelDescriptionConstants {
     public static final String WHOAMI = "whoami";
     public static final String WRITE_ATTRIBUTE_OPERATION = "write-attribute";
     public static final String UNDEFINE_ATTRIBUTE_OPERATION = "undefine-attribute";
+    public static final String EXPRESSIONS_ALLOWED = "expressions-allowed";
 }
 

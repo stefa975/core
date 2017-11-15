@@ -1,5 +1,8 @@
 package org.jboss.as.console.client.shared.subsys.activemq.forms;
 
+import java.util.Collections;
+import java.util.List;
+
 import com.google.gwt.user.client.ui.MultiWordSuggestOracle;
 import com.google.gwt.user.client.ui.Widget;
 import org.jboss.as.console.client.Console;
@@ -19,9 +22,6 @@ import org.jboss.ballroom.client.widgets.forms.TextAreaItem;
 import org.jboss.ballroom.client.widgets.forms.TextBoxItem;
 import org.jboss.ballroom.client.widgets.forms.TextItem;
 import org.jboss.dmr.client.ModelNode;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * @author Heiko Braun
@@ -62,7 +62,7 @@ public class DefaultBridgeForm {
     public Widget asWidget() {
         form.addFormValidator(new ExclusiveFieldsValidator());
 
-        SuggestBoxItem queueName = new SuggestBoxItem("queueName", "Queue Name");
+        SuggestBoxItem queueName = new SuggestBoxItem("queueName", "Queue Name", true);
         SuggestBoxItem forward = new SuggestBoxItem("forwardingAddress", "Forward Address");
         TextAreaItem filter = new TextAreaItem("filter", "Filter", false);
         TextAreaItem transformer = new TextAreaItem("transformerClass", "Transformer Class", false);
@@ -72,6 +72,7 @@ public class DefaultBridgeForm {
 
         discoveryGroup = new TextBoxItem("discoveryGroup", "Discovery Group", false);
         connectors = new ListItem("staticConnectors", "Static Connectors", false);
+        connectors.setRequired(false);
 
         if (isCreate) {
             TextBoxItem name = new TextBoxItem("name", "Name");
@@ -119,6 +120,7 @@ public class DefaultBridgeForm {
 
     public void setQueueNames(List<String> queueNames) {
         oracle.addAll(queueNames);
+        oracle.setDefaultSuggestionsFromText(queueNames);
     }
 
 

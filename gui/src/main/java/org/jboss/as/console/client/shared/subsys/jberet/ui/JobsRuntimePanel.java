@@ -128,7 +128,7 @@ public class JobsRuntimePanel implements IsWidget {
         TextColumn<Job> jobColumn = new TextColumn<Job>() {
             @Override
             public String getValue(Job node) {
-                return node.getName();
+                return node.getJobXmlName();
             }
         };
         TextColumn<Job> idColumn = new TextColumn<Job>() {
@@ -159,7 +159,7 @@ public class JobsRuntimePanel implements IsWidget {
         idColumn.setHorizontalAlignment(HasHorizontalAlignment.ALIGN_CENTER);
         statusColumn.setHorizontalAlignment(HasHorizontalAlignment.ALIGN_CENTER);
         table.addColumn(deploymentColumn, "Deployment");
-        table.addColumn(jobColumn, "Job Name");
+        table.addColumn(jobColumn, "Job-Xml-Name");
         table.addColumn(executionIdColumn, "Execution Id");
         table.addColumn(idColumn, "Instance Id");
         table.addColumn(statusColumn, "Batch Status");
@@ -242,7 +242,7 @@ public class JobsRuntimePanel implements IsWidget {
                     Job job = selectionModel.getSelectedObject();
                     circuit.dispatch(
                             new StartJob(job.getDeploymentName(), job.getSubdeploymentName(),
-                                    job.getName()));
+                                    job.getJobXmlName()));
                 });
 
         this.btnStop = new ToolButton(Console.CONSTANTS.common_label_stop(),
@@ -338,7 +338,8 @@ public class JobsRuntimePanel implements IsWidget {
             if (job.getDeploymentName().toLowerCase().contains(word)
                     || job.getSubdeploymentName().toLowerCase().contains(word)
                     || job.getCurrentStatus().toLowerCase().contains(word)
-                    || job.getName().toLowerCase().contains(word))
+                    || job.getName().toLowerCase().contains(word)
+                    || job.getJobXmlName().toLowerCase().contains(word))
                 filteredJobList.add(job);
         }
         List<Job> propList = dataProvider.getList();
@@ -353,5 +354,4 @@ public class JobsRuntimePanel implements IsWidget {
         propList.addAll(jobs);
     }
 
-    static java.util.logging.Logger _log = java.util.logging.Logger.getLogger("org.jboss");
 }

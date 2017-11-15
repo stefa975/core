@@ -1,10 +1,12 @@
 package org.jboss.as.console.mbui.widgets;
 
 import org.jboss.as.console.client.v3.dmr.ResourceDescription;
-import org.jboss.as.console.mbui.widgets.ModelNodeFormBuilder;
 import org.jboss.ballroom.client.rbac.AuthorisationDecision;
 import org.jboss.ballroom.client.rbac.SecurityContext;
 import org.jboss.dmr.client.ModelNode;
+
+import static org.jboss.dmr.client.ModelDescriptionConstants.ATTRIBUTES;
+import static org.jboss.dmr.client.ModelDescriptionConstants.VALUE_TYPE;
 
 /**
  *
@@ -57,6 +59,7 @@ public class ComplexAttributeForm {
      * * The parent scope resource description (includes the complex attribute definition)
      */
     private ResourceDescription resourceDescriptionDelegate;
+    private String[] excludes;
 
     public ComplexAttributeForm(String attributeName, SecurityContext securityContextDelegate, ResourceDescription resourceDescriptionDelegate) {
 
@@ -70,7 +73,7 @@ public class ComplexAttributeForm {
 
     private ResourceDescription getAttributeDescription() {
         ModelNode desc = new ModelNode();
-        desc.get("attributes").set(resourceDescriptionDelegate.get("attributes").get(attributeName).get("value-type"));
+        desc.get(ATTRIBUTES).set(resourceDescriptionDelegate.get(ATTRIBUTES).get(attributeName).get(VALUE_TYPE));
         return new ResourceDescription(desc);
     }
 
@@ -143,12 +146,27 @@ public class ComplexAttributeForm {
     }
 
     public ModelNodeFormBuilder.FormAssets build() {
+        return builder().build();
+    }
+
+    public ModelNodeFormBuilder builder() {
         ResourceDescription attributeDescription = getAttributeDescription();
 
         return new ModelNodeFormBuilder()
                 .setConfigOnly()
                 .setResourceDescription(attributeDescription)
                 .setSecurityContext(getSecurityContext())
-                .build();
+                .exclude(excludes);
+    }
+
+    /**
+     * Exclude any attribute from the automatic form mapping.
+     *
+     * @param attributes The list of attribute names.
+     * @return this This ComplexAttributeForm instance.
+     */
+    public ComplexAttributeForm exclude(String... attributes) {
+        excludes = attributes;
+        return this;
     }
 }

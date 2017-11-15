@@ -35,6 +35,8 @@ import com.gwtplatform.mvp.shared.proxy.TokenFormatter;
 import org.jboss.as.console.client.ResourceLoader;
 import org.jboss.as.console.client.administration.accesscontrol.AccessControlFinder;
 import org.jboss.as.console.client.administration.accesscontrol.ui.AccessControlView;
+import org.jboss.as.console.client.administration.accesscontrol.ui.SSOAccessControlPresenter;
+import org.jboss.as.console.client.administration.accesscontrol.ui.SSOAccessControlView;
 import org.jboss.as.console.client.administration.audit.AuditLogPresenter;
 import org.jboss.as.console.client.administration.audit.AuditLogView;
 import org.jboss.as.console.client.analytics.AnalyticsProvider;
@@ -105,6 +107,8 @@ import org.jboss.as.console.client.domain.runtime.NoServerPresenter;
 import org.jboss.as.console.client.domain.runtime.NoServerView;
 import org.jboss.as.console.client.domain.topology.TopologyPresenter;
 import org.jboss.as.console.client.domain.topology.TopologyView;
+import org.jboss.as.console.client.meta.Capabilities;
+import org.jboss.as.console.client.meta.CoreCapabilitiesRegister;
 import org.jboss.as.console.client.plugins.RequiredResourcesRegistry;
 import org.jboss.as.console.client.plugins.RequiredResourcesRegistryImpl;
 import org.jboss.as.console.client.plugins.RuntimeExtensionRegistry;
@@ -140,6 +144,8 @@ import org.jboss.as.console.client.shared.general.SocketBindingView;
 import org.jboss.as.console.client.shared.help.HelpSystem;
 import org.jboss.as.console.client.shared.homepage.HomepagePresenter;
 import org.jboss.as.console.client.shared.homepage.HomepageView;
+import org.jboss.as.console.client.shared.hosts.ConfigurationChangesPresenter;
+import org.jboss.as.console.client.shared.hosts.ConfigurationChangesView;
 import org.jboss.as.console.client.shared.model.SubsystemLoader;
 import org.jboss.as.console.client.shared.model.SubsystemStoreImpl;
 import org.jboss.as.console.client.shared.patching.PatchManagementPresenter;
@@ -150,6 +156,8 @@ import org.jboss.as.console.client.shared.runtime.activemq.ActivemqMetricPresent
 import org.jboss.as.console.client.shared.runtime.activemq.ActivemqMetricView;
 import org.jboss.as.console.client.shared.runtime.ds.DataSourceMetricPresenter;
 import org.jboss.as.console.client.shared.runtime.ds.DataSourceMetricView;
+import org.jboss.as.console.client.shared.runtime.elytron.ElytronRuntimePresenter;
+import org.jboss.as.console.client.shared.runtime.elytron.ElytronRuntimeView;
 import org.jboss.as.console.client.shared.runtime.env.EnvironmentPresenter;
 import org.jboss.as.console.client.shared.runtime.env.EnvironmentView;
 import org.jboss.as.console.client.shared.runtime.jms.JMSMetricPresenter;
@@ -174,6 +182,8 @@ import org.jboss.as.console.client.shared.state.ReloadState;
 import org.jboss.as.console.client.shared.subsys.Baseadress;
 import org.jboss.as.console.client.shared.subsys.activemq.ActivemqFinder;
 import org.jboss.as.console.client.shared.subsys.activemq.ActivemqFinderView;
+import org.jboss.as.console.client.shared.subsys.activemq.JMSBridgePresenter;
+import org.jboss.as.console.client.shared.subsys.activemq.JMSBridgeView;
 import org.jboss.as.console.client.shared.subsys.batch.BatchPresenter;
 import org.jboss.as.console.client.shared.subsys.batch.ui.BatchView;
 import org.jboss.as.console.client.shared.subsys.configadmin.ConfigAdminPresenter;
@@ -182,6 +192,16 @@ import org.jboss.as.console.client.shared.subsys.ejb3.EEPresenter;
 import org.jboss.as.console.client.shared.subsys.ejb3.EESubsystemView;
 import org.jboss.as.console.client.shared.subsys.ejb3.EJB3Presenter;
 import org.jboss.as.console.client.shared.subsys.ejb3.EJBView;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronFactoryPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronFinder;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronFinderView;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronMapperPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ElytronSecurityRealmPresenter;
+import org.jboss.as.console.client.shared.subsys.elytron.ui.ElytronSecurityRealmView;
+import org.jboss.as.console.client.shared.subsys.elytron.ui.ElytronView;
+import org.jboss.as.console.client.shared.subsys.elytron.ui.factory.ElytronFactoryView;
+import org.jboss.as.console.client.shared.subsys.elytron.ui.mapper.ElytronMapperView;
 import org.jboss.as.console.client.shared.subsys.generic.GenericSubsystemPresenter;
 import org.jboss.as.console.client.shared.subsys.generic.GenericSubsystemView;
 import org.jboss.as.console.client.shared.subsys.iiopopenjdk.IiopOpenJdkPresenter;
@@ -241,7 +261,18 @@ import org.jboss.as.console.client.shared.subsys.security.v3.SecDomainFinder;
 import org.jboss.as.console.client.shared.subsys.security.v3.SecDomainFinderView;
 import org.jboss.as.console.client.shared.subsys.security.v3.SecDomainPresenter;
 import org.jboss.as.console.client.shared.subsys.security.v3.SecDomainView;
-import org.jboss.as.console.client.shared.subsys.undertow.*;
+import org.jboss.as.console.client.shared.subsys.undertow.FilterPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.FiltersView;
+import org.jboss.as.console.client.shared.subsys.undertow.HttpMetricPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.HttpMetricView;
+import org.jboss.as.console.client.shared.subsys.undertow.HttpPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.HttpView;
+import org.jboss.as.console.client.shared.subsys.undertow.ServletPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.ServletView;
+import org.jboss.as.console.client.shared.subsys.undertow.UndertowFinder;
+import org.jboss.as.console.client.shared.subsys.undertow.UndertowFinderView;
+import org.jboss.as.console.client.shared.subsys.undertow.UndertowPresenter;
+import org.jboss.as.console.client.shared.subsys.undertow.UndertowView;
 import org.jboss.as.console.client.shared.subsys.web.WebPresenter;
 import org.jboss.as.console.client.shared.subsys.web.WebSubsystemView;
 import org.jboss.as.console.client.shared.subsys.ws.DomainEndpointStrategy;
@@ -265,6 +296,8 @@ import org.jboss.as.console.client.tools.modelling.workbench.repository.Reposito
 import org.jboss.as.console.client.tools.modelling.workbench.repository.RepositoryView;
 import org.jboss.as.console.client.tools.modelling.workbench.repository.SampleRepository;
 import org.jboss.as.console.client.v3.ResourceDescriptionRegistry;
+import org.jboss.as.console.client.v3.deployment.DeploymentBrowseContentPresenter;
+import org.jboss.as.console.client.v3.deployment.DeploymentBrowseContentView;
 import org.jboss.as.console.client.v3.deployment.DeploymentDetailsPresenter;
 import org.jboss.as.console.client.v3.deployment.DeploymentDetailsView;
 import org.jboss.as.console.client.v3.deployment.DomainDeploymentFinder;
@@ -370,6 +403,11 @@ public class CoreUIModule extends AbstractPresenterModule {
                 HostJVMView.class,
                 HostJVMPresenter.MyProxy.class);
 
+        bindPresenter(ConfigurationChangesPresenter.class,
+                ConfigurationChangesPresenter.MyView.class,
+                ConfigurationChangesView.class,
+                ConfigurationChangesPresenter.MyProxy.class);
+
         // profile management application
         bindPresenter(ProfileMgmtPresenter.class,
                 ProfileMgmtPresenter.MyView.class,
@@ -401,6 +439,11 @@ public class CoreUIModule extends AbstractPresenterModule {
                 DeploymentDetailsView.class,
                 DeploymentDetailsPresenter.MyProxy.class);
 
+        bindPresenter(DeploymentBrowseContentPresenter.class,
+                DeploymentBrowseContentPresenter.MyView.class,
+                DeploymentBrowseContentView.class,
+                DeploymentBrowseContentPresenter.MyProxy.class);
+
         bindPresenter(DeploymentScannerPresenter.class,
                 DeploymentScannerPresenter.MyView.class,
                 DeploymentScannerView.class,
@@ -425,6 +468,36 @@ public class CoreUIModule extends AbstractPresenterModule {
                       XADataSourcePresenter.MyView.class,
                       XADatasourceView.class,
                       XADataSourcePresenter.MyProxy.class);
+
+        bindPresenter(ElytronFinder.class,
+                ElytronFinder.MyView.class,
+                ElytronFinderView.class,
+                ElytronFinder.MyProxy.class);
+
+        bindPresenter(ElytronPresenter.class,
+                ElytronPresenter.MyView.class,
+                ElytronView.class,
+                ElytronPresenter.MyProxy.class);
+
+        bindPresenter(ElytronFactoryPresenter.class,
+                ElytronFactoryPresenter.MyView.class,
+                ElytronFactoryView.class,
+                ElytronFactoryPresenter.MyProxy.class);
+
+        bindPresenter(ElytronMapperPresenter.class,
+                ElytronMapperPresenter.MyView.class,
+                ElytronMapperView.class,
+                ElytronMapperPresenter.MyProxy.class);
+
+        bindPresenter(ElytronSecurityRealmPresenter.class,
+                ElytronSecurityRealmPresenter.MyView.class,
+                ElytronSecurityRealmView.class,
+                ElytronSecurityRealmPresenter.MyProxy.class);
+
+        bindPresenter(ElytronRuntimePresenter.class,
+                ElytronRuntimePresenter.MyView.class,
+                ElytronRuntimeView.class,
+                ElytronRuntimePresenter.MyProxy.class);
 
         bindPresenter(org.jboss.as.console.client.shared.subsys.messaging.MsgDestinationsPresenter.class,
                 org.jboss.as.console.client.shared.subsys.messaging.MsgDestinationsPresenter.MyView.class,
@@ -455,6 +528,11 @@ public class CoreUIModule extends AbstractPresenterModule {
                 org.jboss.as.console.client.shared.subsys.activemq.cluster.MsgClusteringPresenter.MyView.class,
                 org.jboss.as.console.client.shared.subsys.activemq.cluster.MsgClusteringView.class,
                 org.jboss.as.console.client.shared.subsys.activemq.cluster.MsgClusteringPresenter.MyProxy.class);
+
+        bindPresenter(JMSBridgePresenter.class,
+                JMSBridgePresenter.MyView.class,
+                JMSBridgeView.class,
+                JMSBridgePresenter.MyProxy.class);
 
         bindPresenter(LogViewerPresenter.class,
                 LogViewerPresenter.MyView.class,
@@ -520,7 +598,7 @@ public class CoreUIModule extends AbstractPresenterModule {
                 ResourceAdapterFinder.MyView.class,
                 ResourceAdapterFinderView.class,
                 ResourceAdapterFinder.MyProxy.class);
-        
+
         bindPresenter(ResourceAdapterPresenter.class,
                 ResourceAdapterPresenter.MyView.class,
                 ResourceAdapterView.class,
@@ -778,6 +856,10 @@ public class CoreUIModule extends AbstractPresenterModule {
                 GenericSubsystemView.class,
                 GenericSubsystemPresenter.MyProxy.class);
 
+        bindPresenter(SSOAccessControlPresenter.class,
+                SSOAccessControlPresenter.MyView.class,
+                SSOAccessControlView.class,
+                SSOAccessControlPresenter.MyProxy.class);
 
         // ------------------------------------------------------ circuit
 
@@ -817,6 +899,7 @@ public class CoreUIModule extends AbstractPresenterModule {
         // bootstrapping
         bind(BootstrapContext.class).in(Singleton.class);
         bind(BootstrapServerSetup.class).in(Singleton.class);
+        bind(CoreCapabilitiesRegister.class).in(Singleton.class);
         bind(LoadGoogleViz.class).in(Singleton.class);
         bind(ExecutionMode.class).in(Singleton.class);
         bind(TrackExecutionMode.class).in(Singleton.class);
@@ -828,6 +911,8 @@ public class CoreUIModule extends AbstractPresenterModule {
         bind(EagerLoadGroups.class).in(Singleton.class);
         bind(BootstrapSteps.class).in(Singleton.class);
         bind(Bootstrapper.class).in(Singleton.class);
+
+        bind(Capabilities.class).in(Singleton.class);
 
         bind(StatementContext.class).to(CoreGUIContext.class).in(Singleton.class);
         bind(SecurityFramework.class).to(SecurityFrameworkImpl.class).in(Singleton.class);

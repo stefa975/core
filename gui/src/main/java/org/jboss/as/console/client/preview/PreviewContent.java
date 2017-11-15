@@ -42,11 +42,17 @@ public interface PreviewContent extends ClientBundleWithLookup {
     @Source("properties.html")
     ExternalTextResource properties();
 
+    @Source("content/runtime_ds_metrics.html")
+    ExternalTextResource runtime_ds_metrics();
+
     @Source("runtime_empty_standalone.html")
     ExternalTextResource runtime_empty_standalone();
 
     @Source("runtime_empty_domain.html")
     ExternalTextResource runtime_empty_domain();
+
+    @Source("content/runtime_http_metrics.html")
+    ExternalTextResource runtime_http_metrics();
 
     @Source("runtime_hosts.html")
     ExternalTextResource runtime_hosts();
@@ -59,6 +65,12 @@ public interface PreviewContent extends ClientBundleWithLookup {
 
     @Source("runtime_server_group.html")
     ExternalTextResource runtime_server_group();
+
+    @Source("content/runtime_tx_metrics.html")
+    ExternalTextResource runtime_tx_metrics();
+
+    @Source("content/runtime_webservice_runtime.html")
+    ExternalTextResource runtime_webservice_runtime();
 
     @Source("sockets.html")
     ExternalTextResource sockets();
@@ -114,6 +126,18 @@ public interface PreviewContent extends ClientBundleWithLookup {
     @Source("content/deployment_scanner.html")
     ExternalTextResource deployment_scanner();
 
+    @Source("content/elytron_factory.html")
+    ExternalTextResource elytron_factory();
+
+    @Source("content/elytron_mapper.html")
+    ExternalTextResource elytron_mapper();
+
+    @Source("content/elytron_settings.html")
+    ExternalTextResource elytron_settings();
+
+    @Source("content/elytron_security_realm.html")
+    ExternalTextResource elytron_security_realm();
+
     @Source("content/mail_sessions.html")
     ExternalTextResource mail_sessions();
 
@@ -131,6 +155,9 @@ public interface PreviewContent extends ClientBundleWithLookup {
 
     @Source("content/jca.html")
     ExternalTextResource jca();
+
+    @Source("content/jms_bridge.html")
+    ExternalTextResource jms_bridge();
 
     @Source("content/jmx.html")
     ExternalTextResource jmx();

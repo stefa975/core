@@ -587,7 +587,6 @@ table {
   margin-bottom: 5px;
   width: 100%;
   padding-left: 10px;
-  padding-right: 10px;
 }
 
 .help-panel:hover {
@@ -954,10 +953,13 @@ table {
 .gwt-TabBar {
 }
 
+.gwt-TabBarItem div {
+  cursor:pointer;
+}
+
 .gwt-TabBarItem-wrapper {
   border-bottom: 1px solid #e9e6e6;
   color: @link-color;
-  cursor: pointer;
   margin-left: 0px;
   min-width: 50px;
   padding: 6px 10px;
@@ -1329,7 +1331,6 @@ table {
 .form-item-error-desc {
   color: #c82e2e;
   font-size: 12px;
-  line-height: .2em;
 }
 
 .form-item-error {
@@ -1459,6 +1460,7 @@ input[type="checkbox"] {
   text-decoration: none;
   white-space: nowrap;
   font-weight: 600;
+  font: @body-font;
 
   /* fallback */
   background-color: @background1-color;

@@ -89,6 +89,7 @@ public interface UIConstants extends Constants {
     String common_label_assign();
     String common_label_attributes();
     String common_label_autoStart();
+    String common_label_browseContent();
     String common_label_cancel();
     String common_label_chooseFile();
     String common_label_clear();
@@ -101,6 +102,7 @@ public interface UIConstants extends Constants {
     String common_label_details();
     String common_label_disable();
     String common_label_done();
+    String common_label_explode();
     String common_label_edit();
     String common_label_enable();
     String common_label_enOrDisable();
@@ -131,6 +133,8 @@ public interface UIConstants extends Constants {
     String common_label_paths();
     String common_label_plaseWait();
     String common_label_portOffset();
+    String common_label_priority();
+    String common_label_predicate();
     String common_label_probe();
     String common_label_profile();
     String common_label_properties();
@@ -151,6 +155,7 @@ public interface UIConstants extends Constants {
     String common_label_serverConfigs();
     String common_label_serverGroupConfigurations();
     String common_label_serverGroups();
+    String common_label_setSecret();
     String common_label_settings();
     String common_label_socketBinding();
     String common_label_start();
@@ -181,6 +186,13 @@ public interface UIConstants extends Constants {
     String deploymentEnabledDescription();
     String deploymentNameDescription();
     String deploymentRuntimeNameDescription();
+    String deploymentCannotReadUnmanaged();
+    String deploymentCannotReadUnexploded();
+    String deploymentCannotReplaceUnmanaged();
+    String deploymentCannotExplodeUnmanaged();
+    String deploymentCannotExplodeExploded();
+    String deploymentCannotExplodeEnabled();
+    String discoveryGroupDescription();
     String discoveryGroupOrConnectorsCanBeDefined();
     String discoveryGroupOrConnectorsMustBeDefined();
     String dismiss();
@@ -202,6 +214,7 @@ public interface UIConstants extends Constants {
     String failedToRemoveServer();
     String failedToResolveExpression();
     String failedToRetrieveAttributeDescriptions();
+    String goToRuntime();
     String groupAlreadyExists();
     String help_close_help();
     String help_need_help();
@@ -358,6 +371,7 @@ public interface UIConstants extends Constants {
     String patch_manager_error_title();
     String patch_manager_error();
     String patch_manager_hide_details();
+    String patch_manager_in_effect();
     String patch_manager_latest();
     String patch_manager_patch_details();
     String patch_manager_possible_actions();
@@ -455,6 +469,7 @@ public interface UIConstants extends Constants {
     String server_instance_pleaseSelect();
     String server_instance_reloadRequired();
     String server_instance_servers_needReload();
+    String server_instance_servers_needReload_from_runtime();
     String server_instance_servers_needRestart();
     String server_reload_desc();
     String server_reload_title();
@@ -469,6 +484,9 @@ public interface UIConstants extends Constants {
     String startServerGroup();
     String statisticsEnabledError();
     String stopServerGroup();
+    String sso_access_control_description();
+    String sso_access_control_service_title();
+    String sso_access_control_user_profile();
     String subsys_configadmin_add();
     String subsys_configadmin_editPID();
     String subsys_configadmin_header();
@@ -479,6 +497,7 @@ public interface UIConstants extends Constants {
     String subsys_configadmin_valuesLabel();
     String subsys_configadmin();
     String subsys_ee_desc();
+    String subsys_elytron_ldap_keystore_newattribute_desc();
     String subsys_iiop_openjdk_desc();
     String subsys_jca_boostrap_config_desc();
     String subsys_jca_common_config_desc();
@@ -495,6 +514,7 @@ public interface UIConstants extends Constants {
     String subsys_jca_dataSources_desc();
     String subsys_jca_dataSources();
     String subsys_jca_dataSourcesXA();
+    String subsys_jca_pool_statistics_tab();
     String subsys_jca_err_prop_required();
     String subsys_jca_error_context_removal_desc();
     String subsys_jca_error_context_removal();
@@ -526,10 +546,14 @@ public interface UIConstants extends Constants {
     String subsys_mail_session_desc();
     String subsys_messaging_queue_metric_desc();
     String subsys_messaging_topic_metric_desc();
+    String subsys_messaging_pooled_stats_desc();
     String subsys_modcluster_desc();
     String subsys_naming_jndiBindings();
     String subsys_naming_jndiView();
     String subsys_naming_selectedURI();
+    String subsys_naming_URI();
+    String subsys_naming_type();
+    String subsys_naming_value();
     String subsys_web_desc();
     String subsys_web_socketInUse();
     String subsys_ws_desc();
@@ -537,6 +561,7 @@ public interface UIConstants extends Constants {
     String subsys_ws_endpoint_desc();
     String subsys_ws_provider();
     String subsys_ws_remove_handler();
+    String subsys_ws_wise_title_description();
     String subsystemsDescription();
     String subys_tx_desc();
     String subys_tx_metric_desc();
@@ -544,6 +569,7 @@ public interface UIConstants extends Constants {
     String successfullyRefreshedStatistics();
     String suspend();
     String suspendTimeoutDescription();
+    String stopTimeoutDescription();
     String systemPropertiesDescription();
     String transportSettings();
     String unableToAddDeployment();
@@ -555,6 +581,8 @@ public interface UIConstants extends Constants {
     String unableToModifyDeployment();
     String unableToNavigateBack();
     String unableToRemoveDeployment();
+    String unableToExplodeDeployment();
+    String unableToReadDeployment();
     String unableToResolve();
     String unassign();
     String unassigned();
@@ -564,6 +592,7 @@ public interface UIConstants extends Constants {
     String unauthorizedAdd();
     String unauthorizedRemove();
     String undertowDescription();
+    String undertowApplicationSecurityDomain();
     String unmanagedDeploymentArchiveDescription();
     String unmanagedDeploymentPathDescription();
     String unmanagedDeploymentRelativeToDescription();

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config xmlns="http://zanata.org/namespace/config/">
-    <url>https://translate.jboss.org/</url>
-    <project>hal-resource-bundles</project>
-    <project-version>master</project-version>
+    <url>https://vendors.zanata.redhat.com/</url>
+    <project>eap-hal-resource-bundles</project>
+    <project-version>7.1</project-version>
     <project-type>properties</project-type>
 </config>

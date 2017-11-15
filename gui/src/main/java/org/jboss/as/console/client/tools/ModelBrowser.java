@@ -21,13 +21,18 @@
  */
 package org.jboss.as.console.client.tools;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.IsWidget;
 import com.google.gwt.user.client.ui.Widget;
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.core.ReadRequiredResources;
 import org.jboss.as.console.client.core.RequiredResourcesContext;
-import org.jboss.as.console.client.core.UIConstants;
 import org.jboss.as.console.client.domain.model.SimpleCallback;
 import org.jboss.as.console.client.rbac.SecurityContextImpl;
 import org.jboss.as.console.client.shared.util.LRUCache;
@@ -48,12 +53,6 @@ import org.jboss.gwt.flow.client.Control;
 import org.jboss.gwt.flow.client.Function;
 import org.jboss.gwt.flow.client.Outcome;
 import org.useware.kernel.gui.behaviour.StatementContext;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static org.jboss.dmr.client.ModelDescriptionConstants.*;
 
@@ -376,6 +375,7 @@ public class ModelBrowser implements IsWidget {
         final ModelNode resourceOp  = new ModelNode();
         resourceOp.get(ADDRESS).set(address);
         resourceOp.get(OP).set(READ_RESOURCE_OPERATION);
+        resourceOp.get(INCLUDE_ALIASES).set(true);
         resourceOp.get(INCLUDE_RUNTIME).set(true);
 
         dispatcher.execute(new DMRAction(resourceOp), new SimpleCallback<DMRResponse>() {
@@ -524,7 +524,13 @@ public class ModelBrowser implements IsWidget {
 
                     @Override
                     public void onSuccess(ResourceData context) {
-                        view.showAddDialog(address, isSingleton, context.securityContext, context.description);
+                        if (isSingleton && context.description.get(ATTRIBUTES).asList().isEmpty()
+                                && context.description.get(OPERATIONS).get(ADD).get(REQUEST_PROPERTIES).asList().isEmpty()) {
+                            // no attributes need to be assigned -> skip the next step
+                            onAddChildResource(address, new ModelNode());
+                        } else {
+                            view.showAddDialog(address, isSingleton, context.securityContext, context.description);
+                        }
                     }
                 }
         );

@@ -1,13 +1,5 @@
 package org.jboss.as.console.mbui.widgets;
 
-import org.jboss.ballroom.client.rbac.SecurityContext;
-import org.jboss.ballroom.client.widgets.forms.AbstractForm;
-import org.jboss.ballroom.client.widgets.forms.FormItem;
-import org.jboss.ballroom.client.widgets.forms.PlainFormView;
-import org.jboss.dmr.client.ModelNode;
-import org.jboss.dmr.client.ModelType;
-import org.jboss.dmr.client.Property;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,6 +9,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.jboss.ballroom.client.rbac.SecurityContext;
+import org.jboss.ballroom.client.widgets.forms.AbstractForm;
+import org.jboss.ballroom.client.widgets.forms.FormItem;
+import org.jboss.ballroom.client.widgets.forms.PlainFormView;
+import org.jboss.dmr.client.ModelNode;
+import org.jboss.dmr.client.ModelType;
+import org.jboss.dmr.client.Property;
 
 /**
  * @author Heiko Braun
@@ -54,6 +54,10 @@ public class ModelNodeForm extends AbstractForm<ModelNode> {
 
         this.editedEntity = bean;
 
+        // for the cases where the form represents a complex object created by ComplexAttributeForm
+        // the reset button is only enabled if the node is defined and there is a reset callback (super class)
+        setEnableResetButton(bean.isDefined());
+
         // prevent modification of the source
         // the DMR getter otherwise mutate the bean
         this.editedEntity.protect();
@@ -79,56 +83,22 @@ public class ModelNodeForm extends AbstractForm<ModelNode> {
 
                 if(isComplex ) return true; // skip complex types
 
-                visitItem(propertyName, new FormItemVisitor() {
-
-                    public void visit(FormItem item) {
-
-                        item.resetMetaData();
-
-                        // expressions
-                        String exprValue = exprMap.get(propertyName);
-                        if(exprValue!=null)
-                        {
-                            item.setUndefined(false);
-                            item.setExpressionValue(exprValue);
-                        }
-
-                        // values
-                        else if(value.isDefined()) {
-                            item.setUndefined(false);
-                            Object castedValue = downCast(value, (ModelNode)item.getMetadata());
-                            item.setValue(castedValue);
-                        }
-                        else if(defaults.containsKey(propertyName))
-                        {
-                            item.setUndefined(false);
-                            item.setValue(downCast(defaults.get(propertyName), (ModelNode) item.getMetadata()));
-                        }
-                        else
-                        {
-                            // when no value is given we still need to validate the input
-                            item.setUndefined(true);
-                            item.setModified(true); // don't escape validation
-                        }
-
-                        // RBAC: attribute level constraints
-
-                        /*for(ModelNode att : filteredDMRNames)
-                        {
-                            if(att.asString().equals(propertyName))
-                            {
-                                item.setFiltered(true);
-                                break;
-                            }
-                        } */
-                    }
-                });
-
+                setItemValue(propertyName, value, exprMap);
                 return true;
             }
 
             @Override
             public boolean visitReferenceProperty(String propertyName, ModelNode value, PropertyContext ctx) {
+                // HAL-1112: process property-maps same way as usual value
+                ModelNode attributeMetaData = getAttributeMetaData(propertyName);
+                if (attributeMetaData != null) {
+                    ModelType modelType = resolveTypeFromMetaData(attributeMetaData);
+                    if (ModelType.PROPERTY == modelType) {
+                        setItemValue(propertyName, value, exprMap);
+                        return true;
+                    }
+                }
+
                 isComplex = true;
                 return true;
             }
@@ -166,6 +136,39 @@ public class ModelNodeForm extends AbstractForm<ModelNode> {
 
         // plain views
         refreshPlainView();
+    }
+
+    private void setItemValue(String propertyName, ModelNode value, Map<String, String> exprMap) {
+        visitItem(propertyName, item -> {
+
+            item.resetMetaData();
+
+            // expressions
+            String exprValue = exprMap.get(propertyName);
+            if(exprValue!=null)
+            {
+                item.setUndefined(false);
+                item.setExpressionValue(exprValue);
+            }
+
+            // values
+            else if(value.isDefined()) {
+                item.setUndefined(false);
+                Object castedValue = downCast(value, (ModelNode)item.getMetadata());
+                item.setValue(castedValue);
+            }
+            else if(defaults.containsKey(propertyName))
+            {
+                item.setUndefined(false);
+                item.setValue(downCast(defaults.get(propertyName), (ModelNode) item.getMetadata()));
+            }
+            else
+            {
+                // when no value is given we still need to validate the input
+                item.setUndefined(true);
+                item.setModified(true); // don't escape validation
+            }
+        });
     }
 
     protected void refreshPlainView() {

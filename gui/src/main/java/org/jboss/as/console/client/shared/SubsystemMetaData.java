@@ -19,16 +19,16 @@
 
 package org.jboss.as.console.client.shared;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.jboss.as.console.client.Console;
 import org.jboss.as.console.client.core.NameTokens;
 import org.jboss.as.console.client.plugins.SubsystemExtensionMetaData;
 import org.jboss.as.console.client.plugins.SubsystemRegistry;
 import org.jboss.as.console.client.shared.model.SubsystemRecord;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * @author Heiko Braun
@@ -107,6 +107,7 @@ public class SubsystemMetaData {
         groups.get(CONTAINER).getItems().add(new SubsystemGroupItem("Batch", "batch-jberet", NameTokens.BatchJberet));
 
         groups.get(SECURITY).getItems().add(new SubsystemGroupItem("Security", "security", NameTokens.SecDomains));
+        groups.get(SECURITY).getItems().add(new SubsystemGroupItem("Security - Elytron", "elytron", NameTokens.ElytronFinder));
         groups.get(SECURITY).getItems().add(new SubsystemGroupItem("PicketLink", "picketlink-federation", NameTokens.PicketLinkFinder));
 
         groups.get(INFINISPAN).getItems().add(new SubsystemGroupItem("Infinispan", NameTokens.Infinispan, NameTokens.CacheFinderPresenter));

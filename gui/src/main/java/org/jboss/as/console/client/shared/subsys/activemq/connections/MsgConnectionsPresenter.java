@@ -34,12 +34,16 @@ import org.jboss.as.console.client.shared.subsys.activemq.LoadJMSCmd;
 import org.jboss.as.console.client.shared.subsys.activemq.model.AcceptorType;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqAcceptor;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqBridge;
+import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqConnectionFactory;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqConnector;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqConnectorService;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqJMSEndpoint;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ActivemqJMSQueue;
 import org.jboss.as.console.client.shared.subsys.activemq.model.ConnectorType;
+import org.jboss.as.console.client.shared.subsys.jca.model.CredentialReference;
 import org.jboss.as.console.client.v3.ResourceDescriptionRegistry;
+import org.jboss.as.console.client.v3.dmr.AddressTemplate;
+import org.jboss.as.console.client.v3.dmr.Operation;
 import org.jboss.as.console.client.widgets.forms.ApplicationMetaData;
 import org.jboss.as.console.client.widgets.forms.EntityAdapter;
 import org.jboss.as.console.mbui.behaviour.ModelNodeAdapter;
@@ -47,7 +51,6 @@ import org.jboss.as.console.mbui.dmr.ResourceAddress;
 import org.jboss.as.console.mbui.widgets.AddResourceDialog;
 import org.jboss.as.console.spi.RequiredResources;
 import org.jboss.as.console.spi.SearchIndex;
-import org.jboss.ballroom.client.widgets.forms.FormItem;
 import org.jboss.ballroom.client.widgets.window.DefaultWindow;
 import org.jboss.dmr.client.ModelNode;
 import org.jboss.dmr.client.Property;
@@ -87,11 +90,15 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
         void setInvmConnectors(List<ActivemqConnector> invm);
         void setConnetorServices(List<ActivemqConnectorService> services);
         void setBridges(List<ActivemqBridge> bridges);
+        void setConnectionFactories(List<ActivemqConnectionFactory> factories);
+        void setPooledConnectionFactories(List<Property> models);
     }
     // @formatter:on
 
 
     static final String PARAMS_MAP = "params";
+    public static final AddressTemplate MESSAGING_SERVER = AddressTemplate.of("{selected.profile}/subsystem=messaging-activemq/server=*");
+    public static final AddressTemplate BRIDGE_TEMPLATE = MESSAGING_SERVER.append("bridge=*");
 
     private final PlaceManager placeManager;
     private DispatchAsync dispatcher;
@@ -106,6 +113,8 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
     private EntityAdapter<ActivemqConnector> connectorAdapter;
     private EntityAdapter<ActivemqConnectorService> connectorServiceAdapter;
     private EntityAdapter<ActivemqBridge> bridgeAdapter;
+    private EntityAdapter<ActivemqConnectionFactory> factoryAdapter;
+    private final EntityAdapter<CredentialReference> credentialReferenceAdapter;
     private LoadJMSCmd loadJMSCmd;
     private DefaultWindow propertyWindow;
 
@@ -130,6 +139,8 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
         connectorAdapter = new EntityAdapter<>(ActivemqConnector.class, propertyMetaData);
         connectorServiceAdapter = new EntityAdapter<>(ActivemqConnectorService.class, propertyMetaData);
         bridgeAdapter = new EntityAdapter<>(ActivemqBridge.class, propertyMetaData);
+        factoryAdapter = new EntityAdapter<>(ActivemqConnectionFactory.class, propertyMetaData);
+        this.credentialReferenceAdapter = new EntityAdapter<>(CredentialReference.class, propertyMetaData);
         loadJMSCmd = new LoadJMSCmd(dispatcher, factory, propertyMetaData);
     }
 
@@ -161,6 +172,8 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
         loadConnectors();
         loadConnectorServices();
         loadBridges();
+        loadConnectionFactories();
+        loadPooledConnectionFactory();
     }
 
     private void loadProvider() {
@@ -179,6 +192,7 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
                 }
         );
     }
+
 
     public void loadBridges() {
         ModelNode operation = new ModelNode();
@@ -204,6 +218,11 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
                         ModelNode svc = prop.getValue();
                         ActivemqBridge entity = bridgeAdapter.fromDMR(svc);
                         entity.setName(prop.getName());
+                        if (svc.hasDefined(CREDENTIAL_REFERENCE)) {
+                            ModelNode cred = svc.get(CREDENTIAL_REFERENCE);
+                            CredentialReference credentialReference = credentialReferenceAdapter.fromDMR(cred);
+                            entity.setCredentialReference(credentialReference);
+                        }
 
                         entity.setStaticConnectors(EntityAdapter.modelToList(svc, "static-connectors"));
                         bridges.add(entity);
@@ -436,22 +455,12 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
     }
 
     public void launchNewAcceptorWizard(final AcceptorType type) {
-        loadSocketBindings(new AsyncCallback<List<String>>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                Console.error("Failed to load socket bindings", throwable.getMessage());
-            }
-
-            @Override
-            public void onSuccess(List<String> names) {
-                window = new DefaultWindow(Console.MESSAGES.createTitle(type.name().toUpperCase() + " Acceptor"));
-                window.setWidth(480);
-                window.setHeight(360);
-                window.trapWidget(new NewAcceptorWizard(MsgConnectionsPresenter.this, type).asWidget());
-                window.setGlassEnabled(true);
-                window.center();
-            }
-        });
+        window = new DefaultWindow(Console.MESSAGES.createTitle(type.name().toUpperCase() + " Acceptor"));
+        window.setWidth(480);
+        window.setHeight(360);
+        window.trapWidget(new NewAcceptorWizard(MsgConnectionsPresenter.this, type).asWidget());
+        window.setGlassEnabled(true);
+        window.center();
     }
 
     public void onDeleteAcceptor(final ActivemqAcceptor entity) {
@@ -541,22 +550,12 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
     }
 
     public void launchNewConnectorWizard(final ConnectorType type) {
-        loadSocketBindings(new AsyncCallback<List<String>>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                Console.error("Failed to load socket bindings", throwable.getMessage());
-            }
-
-            @Override
-            public void onSuccess(List<String> names) {
-                window = new DefaultWindow(Console.MESSAGES.createTitle(type.name().toUpperCase() + " Connector"));
-                window.setWidth(480);
-                window.setHeight(360);
-                window.trapWidget(new NewConnectorWizard(MsgConnectionsPresenter.this, type).asWidget());
-                window.setGlassEnabled(true);
-                window.center();
-            }
-        });
+        window = new DefaultWindow(Console.MESSAGES.createTitle(type.name().toUpperCase() + " Connector"));
+        window.setWidth(480);
+        window.setHeight(360);
+        window.trapWidget(new NewConnectorWizard(MsgConnectionsPresenter.this, type).asWidget());
+        window.setGlassEnabled(true);
+        window.center();
     }
 
     public void onDeleteConnector(final ActivemqConnector entity) {
@@ -744,30 +743,8 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
         ModelNode addressNode = new ModelNode();
         addressNode.get(ADDRESS).set(address);
 
-        ModelNode extra = null;
-        List<String> items = null;
-        Object staticConnectors = changeset.get("staticConnectors");
-        if (staticConnectors instanceof List) {
-            items = (List<String>) staticConnectors;
-        }
-        if (items != null && items.size() > 0) { // non-empty list
-            extra = new ModelNode();
-            extra.get(OP).set(WRITE_ATTRIBUTE_OPERATION);
-            extra.get(NAME).set("static-connectors");
-            extra.get(ADDRESS).set(address);
-            extra.get(VALUE).setEmptyList();
-            for (String item : items) { extra.get(VALUE).add(item); }
-        } else if ((items != null && items.size() == 0)
-                || FormItem.VALUE_SEMANTICS.UNDEFINED.equals(staticConnectors)) { // empty list or "undefined"
-            extra = new ModelNode();
-            extra.get(OP).set(UNDEFINE_ATTRIBUTE_OPERATION);
-            extra.get(NAME).set("static-connectors");
-            extra.get(ADDRESS).set(address);
-        }
-
-        ModelNode operation = extra != null ?
-                bridgeAdapter.fromChangeset(changeset, addressNode, extra) :
-                bridgeAdapter.fromChangeset(changeset, addressNode);
+        ModelNodeAdapter adapter = new ModelNodeAdapter();
+        ModelNode operation = adapter.fromChangeset(changeset, addressNode);
 
         dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
             @Override
@@ -813,6 +790,13 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
         address.add("bridge", entity.getName());
 
         ModelNode operation = bridgeAdapter.fromEntity(entity);
+        if (entity.getForwardingAddress().isEmpty()) {
+            operation.remove("forwarding-address");
+        }
+        if (entity.getDiscoveryGroup().isEmpty()) {
+            operation.remove("discovery-group");
+        }
+
         operation.get(ADDRESS).set(address);
         operation.get(OP).set(ADD);
 
@@ -1059,6 +1043,248 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
         });
     }
 
+    @SuppressWarnings("unchecked")
+    public void saveConnnectionFactory(String name, Map<String, Object> changeset) {
+        ModelNode address = new ModelNode();
+        address.get(ADDRESS).set(Baseadress.get());
+        address.get(ADDRESS).add("subsystem", "messaging-activemq");
+        address.get(ADDRESS).add("server", getCurrentServer());
+        address.get(ADDRESS).add("connection-factory", name);
+
+        ModelNode operation = factoryAdapter.fromChangeset(changeset, address);
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.saveFailed("Connection Factory " + getCurrentServer()),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.saved("Connection Factory " + getCurrentServer()));
+                }
+                loadConnectionFactories();
+            }
+        });
+    }
+
+    public void onDeleteCF(final String name) {
+        ModelNode address = Baseadress.get();
+        address.add("subsystem", "messaging-activemq");
+        address.add("server", getCurrentServer());
+        address.add("connection-factory", name);
+
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(address);
+        operation.get(OP).set(REMOVE);
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.deletionFailed("Connection Factory " + name),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.deleted("Connection Factory " + name));
+                }
+                loadConnectionFactories();
+            }
+        });
+    }
+
+    public void launchNewCFWizard() {
+        window = new DefaultWindow(Console.MESSAGES.createTitle("Connection Factory"));
+        window.setWidth(480);
+        window.setHeight(360);
+        window.trapWidget(new NewCFWizard(this).asWidget());
+        window.setGlassEnabled(true);
+        window.center();
+    }
+
+    public void onCreateCF(final ActivemqConnectionFactory entity) {
+        window.hide();
+
+        // default values
+        entity.setUseGlobalPools(true);
+
+        ModelNode address = Baseadress.get();
+        address.add("subsystem", "messaging-activemq");
+        address.add("server", getCurrentServer());
+        address.add("connection-factory", entity.getName());
+
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(address);
+        operation.get(OP).set(ADD);
+
+        // jndi names
+        operation.get("entries").setEmptyList();
+        for (String jndiEntry : entity.getEntries()) {
+            operation.get("entries").add(jndiEntry);
+        }
+
+        // connectors
+        for (String connector : entity.getConnectors()) {
+            operation.get("connectors").add(connector);
+        }
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.addingFailed("Connection Factory " + entity.getName()),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.added("Connection Factory " + entity.getName()));
+                }
+                loadConnectionFactories();
+            }
+        });
+    }
+
+    private void loadConnectionFactories() {
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(Baseadress.get());
+        operation.get(ADDRESS).add("subsystem", "messaging-activemq");
+        operation.get(ADDRESS).add("server", getCurrentServer());
+        operation.get(OP).set(READ_CHILDREN_RESOURCES_OPERATION);
+        operation.get(CHILD_TYPE).set("connection-factory");
+        operation.get(RECURSIVE).set(true);
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.failed("Loading connection factories " + getCurrentServer()),
+                            response.getFailureDescription());
+                } else {
+                    List<Property> model = response.get(RESULT).asPropertyList();
+                    List<ActivemqConnectionFactory> connectionFactories = new ArrayList<>();
+                    for (Property prop : model) {
+                        ModelNode svc = prop.getValue();
+                        ActivemqConnectionFactory entity = factoryAdapter.fromDMR(svc);
+                        entity.setName(prop.getName());
+
+                        entity.setConnectors(EntityAdapter.modelToList(svc, "connectors"));
+                        entity.setEntries(EntityAdapter.modelToList(svc, "entries"));
+                        connectionFactories.add(entity);
+                    }
+                    getView().setConnectionFactories(connectionFactories);
+                }
+            }
+        });
+    }
+
+    private void loadPooledConnectionFactory() {
+
+        org.jboss.as.console.client.v3.dmr.ResourceAddress pooledAddress = MESSAGING_SERVER
+                .resolve(statementContext, getCurrentServer());
+        Operation op = new Operation.Builder(READ_CHILDREN_RESOURCES_OPERATION, pooledAddress)
+                .param(CHILD_TYPE, "pooled-connection-factory")
+                .param(RECURSIVE, true)
+                .build();
+
+        dispatcher.execute(new DMRAction(op), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.failed("Loading pooled connection factory " + getCurrentServer()),
+                            response.getFailureDescription());
+                } else {
+                    List<Property> model = response.get(RESULT).asPropertyList();
+                    getView().setPooledConnectionFactories(model);
+                }
+            }
+        });
+    }
+
+    public void addPooledConnectionFactory(ModelNode payload) {
+
+        ModelNode address = Baseadress.get();
+        address.add("subsystem", "messaging-activemq");
+        address.add("server", getCurrentServer());
+        String resourceName = payload.get(NAME).asString();
+        address.add("pooled-connection-factory", resourceName);
+
+        ModelNode operation = payload;
+        operation.get(ADDRESS).set(address);
+        operation.get(OP).set(ADD);
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.addingFailed("Pooled Connection Factory " + resourceName),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.added("pooled Connection Factory " + resourceName));
+                }
+                loadPooledConnectionFactory();
+            }
+        });
+    }
+
+    public void onDeletePooledCF(final String name) {
+        ModelNode address = Baseadress.get();
+        address.add("subsystem", "messaging-activemq");
+        address.add("server", getCurrentServer());
+        address.add("pooled-connection-factory", name);
+
+        ModelNode operation = new ModelNode();
+        operation.get(ADDRESS).set(address);
+        operation.get(OP).set(REMOVE);
+
+        dispatcher.execute(new DMRAction(operation), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.deletionFailed("Pooled Connection Factory " + name),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.deleted("Pooled Connection Factory " + name));
+                }
+                loadPooledConnectionFactory();
+            }
+        });
+    }
+
+
+    public void onSavePooledCF(final String name, Map<String, Object> changeset) {
+        ModelNode address = Baseadress.get();
+        address.add("subsystem", "messaging-activemq");
+        address.add("server", getCurrentServer());
+        address.add("pooled-connection-factory", name);
+
+        ModelNode addressNode = new ModelNode();
+        addressNode.get(ADDRESS).set(address);
+
+        final ModelNodeAdapter adapter = new ModelNodeAdapter();
+        ModelNode op = adapter.fromChangeset(changeset, addressNode);
+
+        dispatcher.execute(new DMRAction(op), new SimpleCallback<DMRResponse>() {
+            @Override
+            public void onSuccess(DMRResponse result) {
+                ModelNode response = result.get();
+
+                if (response.isFailure()) {
+                    Console.error(Console.MESSAGES.modificationFailed("Pooled Connector Factory " + name),
+                            response.getFailureDescription());
+                } else {
+                    Console.info(Console.MESSAGES.modified("Pooled Connector Factory " + name));
+                }
+                loadPooledConnectionFactory();
+            }
+        });
+    }
+
     @Override
     public SecurityFramework getSecurityFramework() {
         return securityFramework;
@@ -1073,4 +1299,50 @@ public class MsgConnectionsPresenter extends Presenter<MsgConnectionsPresenter.M
     public String getNameToken() {
         return getProxy().getNameToken();
     }
+
+    public void saveAttribute(final String resourceName, final ModelNode payload) {
+        org.jboss.as.console.client.v3.dmr.ResourceAddress address = BRIDGE_TEMPLATE.resolve(statementContext, currentServer, resourceName);
+        for (Property prop : payload.asPropertyList()) {
+            if (!prop.getValue().isDefined()) {
+                payload.remove(prop.getName());
+            }
+        }
+        ModelNode operation;
+        if (payload.asList().size()  > 0) {
+            org.jboss.as.console.client.v3.behaviour.ModelNodeAdapter adapter = new org.jboss.as.console.client.v3.behaviour.ModelNodeAdapter();
+            operation = adapter.fromComplexAttribute(address, CREDENTIAL_REFERENCE, payload);
+        } else {
+            // if the payload is empty, undefine the complex attribute
+            // otherwise an empty attribute is a defined attribute and as the user wants to remove all
+            // values, it is better to undefine it.
+            operation = new ModelNode();
+            operation.get(ADDRESS).set(address);
+            operation.get(OP).set(UNDEFINE_ATTRIBUTE_OPERATION);
+            operation.get(NAME).set(CREDENTIAL_REFERENCE);
+        }
+
+        dispatcher.execute(new DMRAction(operation), new AsyncCallback<DMRResponse>() {
+            @Override
+            public void onFailure(final Throwable caught) {
+                Console.error(Console.MESSAGES.modificationFailed("Bridge " + resourceName),
+                        caught.getMessage());
+                loadBridges();
+            }
+
+            @Override
+            public void onSuccess(final DMRResponse response) {
+                Console.info(Console.MESSAGES.modified("Bridge " + resourceName));
+                loadBridges();
+            }
+        });
+    }
+
+    public EntityAdapter<ActivemqBridge> getBridgeAdapter() {
+        return bridgeAdapter;
+    }
+
+    public EntityAdapter<CredentialReference> getCredentialReferenceAdapter() {
+        return credentialReferenceAdapter;
+    }
+
 }

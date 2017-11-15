@@ -22,6 +22,7 @@
 package org.jboss.as.console.client.core.bootstrap.hal;
 
 import com.google.inject.Inject;
+import org.jboss.as.console.client.meta.CoreCapabilitiesRegister;
 
 /**
  * Simple wrapper around an ordered array of HAL's bootstrap steps.
@@ -38,6 +39,7 @@ public class BootstrapSteps {
     private final EagerLoadProfiles eagerLoadProfiles;
     private final HostStoreInit hostStoreInit;
     private final ServerStoreInit serverStoreInit;
+    private final CoreCapabilitiesRegister coreCapabilitiesRegister;
 
 
     @Inject
@@ -48,7 +50,8 @@ public class BootstrapSteps {
                           RegisterSubsystems registerSubsystems,
                           EagerLoadProfiles eagerLoadProfiles,
                           HostStoreInit hostStoreInit,
-                          ServerStoreInit serverStoreInit) {
+                          ServerStoreInit serverStoreInit,
+                          CoreCapabilitiesRegister coreCapabilitiesRegister) {
 
         this.loadGoogleViz = loadGoogleViz;
         this.executionMode = executionMode;
@@ -58,9 +61,11 @@ public class BootstrapSteps {
         this.eagerLoadProfiles = eagerLoadProfiles;
         this.hostStoreInit = hostStoreInit;
         this.serverStoreInit = serverStoreInit;
+        this.coreCapabilitiesRegister = coreCapabilitiesRegister;
     }
 
     public BootstrapStep[] steps() {
+
         return new BootstrapStep[] {
                 loadGoogleViz,
                 executionMode,
@@ -69,7 +74,8 @@ public class BootstrapSteps {
                 registerSubsystems,
                 eagerLoadProfiles,
                 hostStoreInit,
-                serverStoreInit
+                serverStoreInit,
+                coreCapabilitiesRegister
         };
     }
 }

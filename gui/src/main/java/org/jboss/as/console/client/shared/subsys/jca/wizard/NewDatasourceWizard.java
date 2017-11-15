@@ -21,6 +21,11 @@
  */
 package org.jboss.as.console.client.shared.subsys.jca.wizard;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import com.allen_sauer.gwt.log.client.Log;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -37,11 +42,6 @@ import org.jboss.as.console.client.shared.subsys.jca.model.DataSourceStore;
 import org.jboss.as.console.client.shared.subsys.jca.model.DataSourceTemplates;
 import org.jboss.as.console.client.shared.subsys.jca.model.JDBCDriver;
 import org.jboss.as.console.client.v3.widgets.wizard.Wizard;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.jboss.as.console.client.shared.subsys.jca.wizard.State.*;
 import static org.jboss.ballroom.client.widgets.forms.FormItem.VALUE_SEMANTICS.UNDEFINED;
@@ -76,6 +76,14 @@ public class NewDatasourceWizard<T extends DataSource> extends Wizard<Context<T>
 
     private final DataSourceFinder presenter;
     private final DataSourceStore dataSourceStore;
+    // the Wizard.open method calls addCloseHandler that calls onClose()
+    // the close handler is called when the modal window is closed,
+    // either when the user clicked at "finish" button or cancels the operation
+    // if the modal window is closed or user press "esc" or click at x to close the window
+
+    // then, if the user tested the datasource, it is added to the profile
+    // and as the cancel() is called, we need to ensure to not remove the datasource.
+    private boolean saveDatasource;
 
     public NewDatasourceWizard(final DataSourceFinder presenter,
             final DataSourceStore dataSourceStore,
@@ -101,7 +109,7 @@ public class NewDatasourceWizard<T extends DataSource> extends Wizard<Context<T>
         addStep(CONNECTION, new ConnectionStep<>(this, xa ?
                 Console.CONSTANTS.subsys_jca_xadataSource_step4() :
                 Console.CONSTANTS.subsys_jca_dataSource_step3()));
-//        addStep(TEST, new TestConnectionStep<>(this));
+        addStep(TEST, new TestConnectionStep<>(this));
         addStep(SUMMARY, new SummaryStep<>(this));
     }
 
@@ -123,10 +131,12 @@ public class NewDatasourceWizard<T extends DataSource> extends Wizard<Context<T>
             case CONNECTION:
                 previous = context.xa ? PROPERTIES : DRIVER;
                 break;
-//            case TEST:
-//                previous = CONNECTION;
+           case TEST:
+               previous = CONNECTION;
+               break;
             case SUMMARY:
-                previous = CONNECTION;
+                previous = TEST;
+                break;
         }
         return previous;
     }
@@ -148,10 +158,11 @@ public class NewDatasourceWizard<T extends DataSource> extends Wizard<Context<T>
                 next = CONNECTION;
                 break;
             case CONNECTION:
-                next = SUMMARY;
+                next = TEST;
                 break;
-//            case TEST:
-//                break;
+           case TEST:
+               next = SUMMARY;
+               break;
             case SUMMARY:
                 break;
         }
@@ -222,6 +233,10 @@ public class NewDatasourceWizard<T extends DataSource> extends Wizard<Context<T>
 
     @Override
     protected void finish() {
+        // it is important to set it before the super.finish() call as it will call cancel() before
+        // finishing super.finish() call.
+        // this way the variable controls the rule to not remove the datasource in the cancel()
+        saveDatasource = true;
         super.finish();
         if (context.xa) {
             presenter.onCreateXADatasource(context.asXADataSource(), context.dataSourceCreatedByTest);
@@ -233,12 +248,13 @@ public class NewDatasourceWizard<T extends DataSource> extends Wizard<Context<T>
     @Override
     protected void cancel() {
         super.cancel();
-        if (context.dataSourceCreatedByTest) {
+        if (!saveDatasource && context.dataSourceCreatedByTest) {
+            saveDatasource = false;
             // cleanup
             AsyncCallback<Boolean> callback = new AsyncCallback<Boolean>() {
                 @Override
                 public void onFailure(final Throwable throwable) {
-//                    Console.error(Console.CONSTANTS.cannotRemoveDataSourceAfterTest(), throwable.getMessage());
+                   Console.error(Console.CONSTANTS.common_error_unknownError(), throwable.getMessage());
                 }
 
                 @Override

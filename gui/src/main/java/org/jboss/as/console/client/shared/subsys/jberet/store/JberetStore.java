@@ -401,24 +401,42 @@ public class JberetStore extends ChangeSupport {
             String deploymentName;
             String subdeploymentName = "";
             
-            if (addressList.size() == 3) {
-                // constains subdeployment
-                deploymentName = addressList.get(0).get(ModelDescriptionConstants.DEPLOYMENT).asString();
-                subdeploymentName = addressList.get(1).get(ModelDescriptionConstants.SUBDEPLOYMENT).asString();
-            } else {
-                deploymentName = addressList.get(0).get(ModelDescriptionConstants.DEPLOYMENT).asString();
+            boolean subdeployment = false;
+            int index = 2;
 
+            if (Console.MODULES.getBootstrapContext().isStandalone()) {
+                index = 0;
+            }
+            
+            for (ModelNode node: addressList) {
+                Property property = node.asProperty();
+                if (property.getName().equals("subdeployment")) {
+                    subdeployment = true;
+                    break;
+                }
+            }
+            
+            if (subdeployment) {
+                // constains subdeployment
+                deploymentName = addressList.get(index).get(ModelDescriptionConstants.DEPLOYMENT).asString();
+                subdeploymentName = addressList.get(index + 1).get(ModelDescriptionConstants.SUBDEPLOYMENT).asString();
+            } else {
+                deploymentName = addressList.get(index).get(ModelDescriptionConstants.DEPLOYMENT).asString();
             }
             ModelNode jobNode = deploymentNode.get(RESULT).get(ModelDescriptionConstants.JOB);
             for (Property jobProperty : jobNode.asPropertyList()) {
                 String jobName = jobProperty.getName();
                 
+                // not sure if it is possible the same job, multiple filenames.
+                String jobXmlName = jobProperty.getValue().get("job-xml-names").asList().get(0).asString();
+                        
                 // if the job had run, get the runtime attributes
                 if (jobProperty.getValue().get("instance-count").asInt() > 0) {
                     
                     for (Property ins : jobProperty.getValue().get("execution").asPropertyList()) {
                         Job job = new Job(ins.getValue());
                         job.setName(jobName);
+                        job.setJobXmlName(jobXmlName);
                         job.setExecutionId(ins.getName());
                         job.setDeploymentName(deploymentName);
                         job.setSubdeploymentName(subdeploymentName);
@@ -427,6 +445,7 @@ public class JberetStore extends ChangeSupport {
                 } else {
                     Job job = new Job(new ModelNode());
                     job.setName(jobName);
+                    job.setJobXmlName(jobXmlName);
                     job.setDeploymentName(deploymentName);
                     job.setSubdeploymentName(subdeploymentName);
                     jobsMetrics.add(job);

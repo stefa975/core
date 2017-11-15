@@ -33,9 +33,11 @@ public interface UIMessages extends Messages {
     String addDeploymentToServerGroup(String serverGroup);
     String added(String name);
     String addGroup();
+    String addGroupToRole();
     String addingFailed(String name);
     String addMember();
     String addUser();
+    String addUserToRole();
     String administration_members(String name);
     String administration_scoped_role_in_use(int usage);
     String allPrincipalsAreAlreadyMembersOf(String name);
@@ -58,6 +60,7 @@ public interface UIMessages extends Messages {
     String common_validation_heapSize();
     String common_validation_notEmptyNoSpace();
     String common_validation_portOffsetUndefined(String errMessage);
+    String configuration_changes_description();
     String contentAlreadyAssigned(String name);
     String contentFailedToAssignToServerGroups(String name);
     String contentFailedToUnassignFromServerGroups(String name);
@@ -81,9 +84,11 @@ public interface UIMessages extends Messages {
     String deploymentSuccessfullyDeployed(String name);
     String deploymentSuccessfullyReplaced(String name);
     String disableConfirm(String entity);
+    String disableSSOOnSecurityDomainConfirm(String domainName);
     String editRole();
     String enableConfirm(String entity);
     String environment_description();
+    String explodeTitle(String name);
     String excludedFrom();
     String excludeMember();
     String excludeRole();
